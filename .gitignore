@@ -1,0 +1,40 @@
+# ── 环境与密钥 ──
+.env
+.env.local
+*.pem
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# pytest 自定义 basetemp / cache_dir（跑长测试时为绕开临时目录清理守卫）
+_pt*/
+_pc*/
+ptmp*/
+.pcache/
+
+# ── 数据（含用户内容，绝不入库）──
+data/
+*.db
+*.db-wal
+*.db-shm
+backend/data/
+
+# ── Node / 前端 ──
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# ── 编辑器 / 系统 ──
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

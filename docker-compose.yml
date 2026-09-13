@@ -1,0 +1,52 @@
+# 平行校园 · 单机部署（spec/09 §2）
+#
+# 默认（不用 Caddy）：
+#   docker compose up -d --build
+#   → http://localhost:8000（uvicorn 直接对外，含前端静态与 SSE）
+#
+# 需要自动 HTTPS / 80+443 反代时（有域名/公网部署才需要）：
+#   docker compose --profile caddy up -d --build
+#
+# 单进程后端是硬约束：`--workers 1` + SQLite 单写者。
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env
+    # environment 优先级高于 env_file：容器内数据库必须落卷 /data，
+    # 压掉 .env 里面向本机开发的相对路径（./data/pc.db）
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/pc.db
+    ports:
+      # 通过 APP_PORT 自定义宿主机端口，例如 APP_PORT=18000。
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # 可选：Caddy 反向代理 + 自动 HTTPS。默认不启动（profiles 过滤）。
+  # 用法：docker compose --profile caddy up -d
+  caddy:
+    image: caddy:2
+    profiles: ["caddy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

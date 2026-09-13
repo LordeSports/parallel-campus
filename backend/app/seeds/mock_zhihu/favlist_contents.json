@@ -1,0 +1,146 @@
+{
+  "fav-games": [
+    {
+      "Id": "fav-games-1",
+      "ContentType": "回答",
+      "Title": "关于机器学习的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明机器学习并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500000/answer/600000"
+    },
+    {
+      "Id": "fav-games-2",
+      "ContentType": "回答",
+      "Title": "关于游戏设计的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明游戏设计并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500001/answer/600001"
+    },
+    {
+      "Id": "fav-games-3",
+      "ContentType": "回答",
+      "Title": "关于食堂的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明食堂并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500002/answer/600002"
+    },
+    {
+      "Id": "fav-games-4",
+      "ContentType": "回答",
+      "Title": "关于赛博朋克的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明赛博朋克并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500003/answer/600003"
+    },
+    {
+      "Id": "fav-games-5",
+      "ContentType": "回答",
+      "Title": "关于街拍的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明街拍并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500004/answer/600004"
+    },
+    {
+      "Id": "fav-games-6",
+      "ContentType": "回答",
+      "Title": "关于生活的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明生活并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500005/answer/600005"
+    },
+    {
+      "Id": "fav-games-7",
+      "ContentType": "回答",
+      "Title": "关于深度学习的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明深度学习并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500006/answer/600006"
+    },
+    {
+      "Id": "fav-games-8",
+      "ContentType": "回答",
+      "Title": "关于像素的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明像素并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500007/answer/600007"
+    },
+    {
+      "Id": "fav-games-9",
+      "ContentType": "回答",
+      "Title": "关于社团的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明社团并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500008/answer/600008"
+    },
+    {
+      "Id": "fav-games-10",
+      "ContentType": "回答",
+      "Title": "关于宇宙的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明宇宙并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500009/answer/600009"
+    }
+  ],
+  "fav-ml": [
+    {
+      "Id": "fav-ml-1",
+      "ContentType": "回答",
+      "Title": "关于机器学习的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明机器学习并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500000/answer/600000"
+    },
+    {
+      "Id": "fav-ml-2",
+      "ContentType": "回答",
+      "Title": "关于游戏设计的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明游戏设计并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500001/answer/600001"
+    },
+    {
+      "Id": "fav-ml-3",
+      "ContentType": "回答",
+      "Title": "关于食堂的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明食堂并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500002/answer/600002"
+    },
+    {
+      "Id": "fav-ml-4",
+      "ContentType": "回答",
+      "Title": "关于赛博朋克的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明赛博朋克并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500003/answer/600003"
+    },
+    {
+      "Id": "fav-ml-5",
+      "ContentType": "回答",
+      "Title": "关于街拍的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明街拍并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500004/answer/600004"
+    },
+    {
+      "Id": "fav-ml-6",
+      "ContentType": "回答",
+      "Title": "关于生活的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明生活并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500005/answer/600005"
+    },
+    {
+      "Id": "fav-ml-7",
+      "ContentType": "回答",
+      "Title": "关于深度学习的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明深度学习并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500006/answer/600006"
+    },
+    {
+      "Id": "fav-ml-8",
+      "ContentType": "回答",
+      "Title": "关于像素的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明像素并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500007/answer/600007"
+    },
+    {
+      "Id": "fav-ml-9",
+      "ContentType": "回答",
+      "Title": "关于社团的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明社团并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500008/answer/600008"
+    },
+    {
+      "Id": "fav-ml-10",
+      "ContentType": "回答",
+      "Title": "关于宇宙的一个反直觉结论",
+      "Excerpt": "作者用了一个很小的例子说明宇宙并不像大家想的那么简单，读完之后我改了原来的看法。",
+      "Url": "https://www.zhihu.com/question/500009/answer/600009"
+    }
+  ]
+}

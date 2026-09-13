@@ -1,0 +1,25 @@
+"""seeds 包。"""
+
+from .loader import (  # noqa: F401
+    INTEREST_VOCAB,
+    avatar_keys,
+    avatars,
+    calendar,
+    default_schedule,
+    events_for_day,
+    get_avatar,
+    get_location,
+    is_weekend,
+    judge_by_username,
+    judges,
+    location_map,
+    locations,
+    normalize_tags,
+    normalize_topic,
+    npc_by_id,
+    npcs,
+    reload_all,
+    system_character,
+    warmup,
+    weekday_courses,
+)

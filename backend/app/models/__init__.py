@@ -1,0 +1,25 @@
+"""models 包入口。"""
+
+from .tables import (  # noqa: F401
+    Character,
+    Comment,
+    Dialogue,
+    Event,
+    HumanRateLog,
+    Like,
+    LlmUsage,
+    Memory,
+    Message,
+    Persona,
+    Post,
+    QuotaLog,
+    Relationship,
+    Report,
+    User,
+    Whisper,
+    WorldEvent,
+    WorldState,
+    ZhihuCache,
+    new_id,
+    now_utc,
+)

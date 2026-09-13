@@ -1,0 +1,34 @@
+[
+  {
+    "Id": "l1",
+    "Title": "好玩的小游戏",
+    "ItemCount": 12,
+    "Description": "机制奇奇怪怪但很好玩",
+    "IsPublic": true,
+    "UrlToken": "fav-games"
+  },
+  {
+    "Id": "l2",
+    "Title": "机器学习笔记",
+    "ItemCount": 31,
+    "Description": "自己反复看的几篇",
+    "IsPublic": true,
+    "UrlToken": "fav-ml"
+  },
+  {
+    "Id": "l3",
+    "Title": "深夜读物",
+    "ItemCount": 8,
+    "Description": "不看会睡不着",
+    "IsPublic": false,
+    "UrlToken": "fav-night"
+  },
+  {
+    "Id": "l4",
+    "Title": "摄影参考",
+    "ItemCount": 17,
+    "Description": "构图和光线",
+    "IsPublic": false,
+    "UrlToken": "fav-photo"
+  }
+]

@@ -1,0 +1,24 @@
+# 平行校园 · Caddy（spec/09 §2）
+#
+# `flush_interval -1` 关掉 SSE 缓冲——否则 EventSource 会攒够一批才吐，
+# 前端「实时校园」就变成「一分钟前的校园」。
+
+campus.example.com {
+	encode zstd gzip
+
+	@sse path /api/stream
+	handle @sse {
+		reverse_proxy app:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy app:8000
+	}
+
+	header /assets/* Cache-Control "public, max-age=31536000, immutable"
+}

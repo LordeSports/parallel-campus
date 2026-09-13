@@ -1,0 +1,232 @@
+# 平行校园 · Parallel Campus
+
+> 知乎黑客松 2026 · 校园新锐季 · 赛道：灵魂匹配局（社区 × 社交）
+
+把你的知乎公开创作、关注与收藏，炼成一份**可编辑的人格文件**，投进一个**会自己运转的虚拟校园**。
+你的分身在这里上课、吃饭、聊天、发帖；你只能通过「耳语」给它递话，看它怎么决定。
+48 个虚拟小时之后，校园墙与匹配报告会把「另一个你可能认识的人」推回到真人面前。
+
+---
+
+## 一、它是什么
+
+| 层 | 做什么 |
+|---|---|
+| **人格层** | 读知乎公开数据 → 证据包 → LLM 提炼 `PersonaFile`（原型、MBTI-like、大五、兴趣、立场、说话风格）。可编辑、可重生成。 |
+| **世界层** | 8 个地点、26 个分身（8 个 NPC + 真人分身 + 校园广播）。1 tick = 30 虚拟分钟，1 虚拟日 = 48 tick。日程驱动 + 刺激驱动的决策门控。 |
+| **社交层** | 十种动作（move/talk/post/comment/like/dm/attend/do/search_zhihu/idle）；对话单次生成、逐轮推送；记忆打分检索；好感关系演化。 |
+| **回流层** | 校园墙（校园墙/树洞/公告）· 日记（心情曲线 + 时间线 + 夜间反思）· 耳语（每天 3 次）· 匹配报告（Top3 + 关系图）。 |
+| **实时层** | SSE 单向广播 20 类事件；连接数 = 观众数 → Ticker 速率自适应（online 20s / idle 300s / fast_forward 0s）。 |
+
+**核心设计取舍**：分身不是「被遥控的号」，是一个有记忆、会拒你的角色。耳语是**建议**而非**命令**——它会评估、可能采纳，也可能拒绝并给出理由。
+
+---
+
+## 二、架构
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  [可选 Caddy: 443 自动 HTTPS，SSE 不缓冲]                     │
+│      └─► uvicorn --workers 1  （默认直接暴露 8000）           │
+│            ├── FastAPI REST  /api/*                          │
+│            ├── SSE  /api/stream  ── 事件总线扇出             │
+│            ├── Ticker（单例，状态机）── 每 tick 跑一轮世界      │
+│            └── SQLite WAL（/data/pc.db，单写者 + BEGIN IMMEDIATE）│
+└──────────────────────────────────────────────────────────────┘
+            │                                    ▲
+            │ LLM (OpenAI 兼容)                   │ 知乎开放接口
+            ▼                                    │ (Bearer + 时间戳签名)
+     9 个 Jinja2 模板                      hot_list / zhihu_search
+     temperature 0.4–0.9                   / zhida / user_data
+```
+
+### 一个 tick 里发生什么
+
+1. `advance()` 推进时间（跨日时 `minute_of_day` 归 360，`tick` 单调递增）
+2. `stimuli.compute()` 给每个角色算刺激（whisper 10 / dm_unread 8 / mention 8 / new_face 7 / …）
+3. `gate` 决定谁需要决策：salience ≥ 8 必决策；日程边界必决策；有刺激 60% 决策；另有 15% 随机自发性
+4. 排序（player 优先 → salience 降序 → 随机），取前 `MAX_DECISIONS_PER_TICK=10`，并发度 ≤ `MAX_CONCURRENT_LLM=8`
+5. `char_agent.decide()` 调 LLM → `Decision`；超时/解析失败 → 退化为 `follow_schedule`
+6. `actions.apply_all()` 落地十种动作并校验（`talk` 必须带在场角色的 `target_id`）
+7. `dialogue.run_all()` 配对在场角色 → 单次生成整段对话 → 逐轮推 `dialogue_turn`
+8. `memory` / 关系 / 好感更新
+9. **tick 末一次事务提交**（崩溃丢当前 tick，不回退）
+
+---
+
+## 三、本地运行
+
+### 后端
+
+```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate     # Windows
+# source .venv/bin/activate                          # macOS / Linux
+pip install -e ".[dev]"
+cp .env.example .env                                  # 至少填 LLM_API_KEY
+uvicorn app.main:app --reload --port 8000
+```
+
+可通过命令行 `--port` 自定义后端端口；Docker Compose 使用 `APP_PORT` 自定义宿主机端口（容器内仍为 8000）。
+
+首次启动自动建表、加载 seeds、创建 NPC 与校园广播。
+`DEV_MODE=true` 时可用 `POST /api/auth/dev-login`（走 mock 知乎数据）直接登录。
+
+### 前端
+
+```bash
+cd frontend
+npm install
+npm run dev                                           # http://localhost:5173，代理 /api → :8000
+```
+
+前端开发端口可设置 `VITE_PORT=5174`，后端代理地址可设置 `VITE_API_TARGET=http://localhost:18000`。
+
+### 测试与契约
+
+```bash
+cd backend
+
+# 全量测试（128 passed）
+# ⚠️ 必须指定项目内的 basetemp/cache_dir：默认的 %TEMP%\pytest-of-* 目录
+#    在清理时会触发沙箱的批量删除守卫，导致 pytest 的 stdout 被吞掉。
+pytest -q --basetemp=./_pt -o cache_dir=./_pc
+
+# 单文件
+pytest tests/test_sim_loop.py -q
+
+# 起真实 uvicorn 打 9 个接口（冒烟）
+python scripts/smoke_serve.py
+
+# 写会话语义（write_session / session_scope / rollback）
+python scripts/verify_write.py
+
+# OpenAPI 与 spec/03 逐路径核对（33 paths / 56 schemas）
+python scripts/verify_contract.py
+
+# 重新生成前端类型
+python scripts/dump_openapi.py && python scripts/gen_ts_types.py
+```
+
+**已验收（spec/10 §1 阶段 0）**
+
+| 项 | 结果 |
+|---|---|
+| `pytest` 全量 | 128 passed |
+| `test_e2e_fast_forward_meets_acceptance`（48 tick → ≥10 帖、≥5 对话） | 通过 |
+| `scripts/smoke_serve.py`（9 接口） | 9/9 通过 |
+| `scripts/verify_contract.py` | 33 paths 全覆盖 |
+| `scripts/verify_write.py` | 4/4 通过 |
+| 前端 `eslint` / `tsc --noEmit` / `vite build` | 0 错 / 0 错 / 通过 |
+| 单 tick 耗时（8 NPC） | 0.44s |
+
+> 契约以 `spec/*.md` 为准。与 `docs/` 或旧计划冲突时，**以 spec 为准**。
+>
+> 注意：`GET /api/persona` 对尚未生成人格的用户返回 **404**（spec/03 §3），
+> 前端据此跳转 `/persona` 编辑器——这是预期行为，不是错误。
+
+---
+
+## 四、环境变量
+
+完整清单见 `.env.example`。生产必填（`APP_ENV=prod` 时启动校验，缺项拒绝启动）：
+
+| 变量 | 说明 |
+|---|---|
+| `SESSION_SECRET` | 会话 cookie 签名（`openssl rand -hex 32`） |
+| `TOKEN_ENC_KEY` | Fernet 密钥，加密存知乎 token |
+| `ADMIN_TOKEN` | 运维接口凭证 |
+| `LLM_API_KEY` | OpenAI 兼容网关密钥 |
+| `DATABASE_URL` | 默认 `sqlite+aiosqlite:////data/pc.db` |
+| `ZHIHU_ACCESS_SECRET` / `ZHIHU_OAUTH_APP_ID` / `ZHIHU_OAUTH_APP_KEY` | 知乎开放接口与 OAuth |
+
+`DEV_MODE` 在 prod 必须为 `false`（否则拒绝启动）。
+
+---
+
+## 五、知乎能力清单
+
+| 能力 | 接口 | 用途 | 配额 |
+|---|---|---|---|
+| 热榜 | `hot_list` | 转译为校园事件（讲座/比赛/讨论），挂原文链接 | 24/日 |
+| 搜索 | `zhihu_search` | 分身主动「查资料」；生成话题帖 | 200/日 |
+| 知乎直答 | `zhida` | 事件背景说明、角色观点补充 | 50/日 |
+| 用户数据 | `user_data`（contents / followees / favlists / saved_items） | 人格证据包 | 无硬限 |
+
+鉴权：`Authorization: Bearer <secret>` + `X-Request-Timestamp`。
+带响应缓存（key 含路径、排序参数与 token 前缀），**失败不重试**，日志脱敏。
+
+---
+
+## 六、目录
+
+```
+parallel-campus/
+├── backend/
+│   ├── app/
+│   │   ├── api/          REST 路由
+│   │   ├── models/       SQLModel 表（19 张）
+│   │   ├── schemas/      请求/响应 + SSE payload
+│   │   ├── sim/          模拟引擎（世界/Ticker/门控/动作/对话/记忆/报告/总线）
+│   │   ├── llm/          LLM 网关 + 9 个 Jinja2 模板
+│   │   ├── zhihu/        知乎适配层（client / oauth / content / user_data / mock）
+│   │   ├── persona/      人格提取管线
+│   │   └── seeds/        seeds JSON + mock_zhihu 夹具
+│   ├── scripts/          OpenAPI 导出 / TS 类型生成 / 诊断
+│   └── tests/
+├── frontend/
+│   └── src/
+│       ├── api/          client · sse · endpoints · types（生成）
+│       ├── store/        session · world · wall · avatar（zustand）
+│       ├── components/   AppShell · MapCanvas · LiveFeed · CharacterDrawer
+│       │                 PersonaEditor · DeployForm · MoodChart · RelationGraph · Toast
+│       └── pages/        Login · Persona · Campus · Wall · Diary · Report
+├── ops/                  部署与备份脚本
+├── Dockerfile            多阶段：前端构建 → Python 运行时
+├── docker-compose.yml    app（默认，直接 8000）+ caddy（可选 profile）
+├── Caddyfile             SSE flush_interval -1（启用 caddy profile 时使用）
+└── spec/                 11 份实现契约（00–10）
+```
+
+---
+
+## 七、部署
+
+默认**不用 Caddy**——uvicorn 直接对外（前端静态 + API + SSE 同源同端口）：
+
+```bash
+cp .env.example .env      # 填值（APP_ENV=dev 可先跑通）
+docker compose up -d --build
+curl http://localhost:8000/api/health
+# 浏览器打开 http://localhost:8000
+```
+
+> 容器内数据库固定落卷：compose 会强制 `DATABASE_URL=sqlite+aiosqlite:////data/pc.db`
+> （`environment` 优先级高于 `.env`），宿主机 `./data/` 就是数据目录，备份它即可。
+> Windows / WSL2 挂载无权限问题；原生 Linux 宿主若报只读，`chmod -R o+rw ./data` 或改属主 UID 10001。
+
+需要自动 HTTPS / 80+443 反代（有域名、公网部署）时，Caddy 作为**可选 profile** 启用：
+
+```bash
+docker compose --profile caddy up -d --build
+curl https://<域名>/api/health
+curl -N https://<域名>/api/stream -H "Cookie: pc_session=…"   # 15s 内应见 heartbeat
+```
+
+预热：`POST /api/admin/hot-pull` → `POST /api/admin/fast-forward?ticks=144` → `GET /api/admin/status` 确认 `fail_streak==0`。
+
+**镜像构建常见坑**
+
+- `sh: tsc: Permission denied`（exit 126）：构建上下文把本机 `node_modules` COPY 进了镜像、
+  覆盖 `npm ci` 的 Linux 版本。已由根目录 `.dockerignore`（`**/node_modules` 等）解决，勿删。
+- 本机 node_modules/dist/.env/数据库文件都不会进构建上下文（见 `.dockerignore`）。
+
+---
+
+## 八、约束与已知边界
+
+- **`--workers 1` 是硬约束**：单 Ticker + SQLite 单写者。多 worker 会得到两个互相覆盖的世界。
+- SQLite 用 WAL + `NullPool` + `BEGIN IMMEDIATE`。不要在 session 上手动 `BEGIN IMMEDIATE`——会让 `commit()` 退化成 rollback。
+- 一个页面 = 一个 SSE 连接 = 一个观众；观众数直接影响 Ticker 速率。
+- LLM 预算 ≤ 300 次/虚拟日；`fail_streak` 超阈值触发 `degraded`（角色退回日程行动）。
+- 耳语每天 3 次，≤80 字；分身可以拒绝。

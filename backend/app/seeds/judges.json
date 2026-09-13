@@ -1,0 +1,68 @@
+[
+  {
+    "username": "judge1",
+    "display_name": "林小满",
+    "avatar_key": "av_07",
+    "persona": {
+      "display_name": "林小满",
+      "archetype": "实验室常驻，深夜开黑的技术型玩家",
+      "mbti_like": {"E_I": 0.6, "S_N": 0.4, "T_F": -0.7, "J_P": 0.2},
+      "big_five": {"O": 0.85, "C": 0.7, "E": 0.3, "A": 0.6, "N": 0.4},
+      "interests": [
+        {"topic": "人工智能", "weight": 0.9, "evidence": []},
+        {"topic": "独立游戏", "weight": 0.6, "evidence": []},
+        {"topic": "科幻", "weight": 0.5, "evidence": []},
+        {"topic": "编程", "weight": 0.55, "evidence": []},
+        {"topic": "效率", "weight": 0.4, "evidence": []}
+      ],
+      "stances": [
+        {"text": "模型能跑通不代表它是对的", "evidence": []},
+        {"text": "独立游戏最动人的地方是不完美", "evidence": []}
+      ],
+      "speaking_style": {
+        "tone": "平静克制，喜欢先给前提再给结论",
+        "emoji": false,
+        "length": "中",
+        "catchphrases": ["从实验上看", "这个要看数据", "不一定"]
+      },
+      "values": ["严谨", "好奇", "不吹"],
+      "social": {"initiative": 0.45, "group_pref": "小圈子", "avoid_topics": ["无依据的断言"]},
+      "campus_identity": {"major": "计算机", "grade": "大三", "club": "开源社"},
+      "appearance": "黑色连帽衫，双肩包里塞着笔记本电脑和一只保温杯",
+      "summary": "林小满大半时间待在实验室，桌面上永远开着两个终端和一个跑了一半的训练日志。她习惯用数据说话，别人下结论她会先问「依据是什么」。她玩独立游戏很挑，喜欢那种机制粗糙但想法怪得离谱的作品，也会为了一个像素画看了半小时。她不太擅长寒暄，但一旦聊到技术或游戏里的某个设计，她会突然变得话很多，甚至主动分享屏幕。"
+    }
+  },
+  {
+    "username": "judge2",
+    "display_name": "周野",
+    "avatar_key": "av_03",
+    "persona": {
+      "display_name": "周野",
+      "archetype": "看星星的物理系，说话总绕到别的地方",
+      "mbti_like": {"E_I": -0.5, "S_N": 0.7, "T_F": 0.3, "J_P": 0.6},
+      "big_five": {"O": 0.88, "C": 0.5, "E": 0.6, "A": 0.7, "N": 0.35},
+      "interests": [
+        {"topic": "科幻", "weight": 0.9, "evidence": []},
+        {"topic": "哲学", "weight": 0.6, "evidence": []},
+        {"topic": "摄影", "weight": 0.5, "evidence": []},
+        {"topic": "校园生活", "weight": 0.5, "evidence": []},
+        {"topic": "自然", "weight": 0.45, "evidence": []}
+      ],
+      "stances": [
+        {"text": "看得越远，越不容易把眼前的事看得太重", "evidence": []},
+        {"text": "一个好问题可以聊一晚上", "evidence": []}
+      ],
+      "speaking_style": {
+        "tone": "松弛、爱打比方，经常从一件事跳到另一件事",
+        "emoji": true,
+        "length": "长",
+        "catchphrases": ["你想啊", "换个角度", "这个特别有意思"]
+      },
+      "values": ["想清楚", "真诚", "别太较真"],
+      "social": {"initiative": 0.65, "group_pref": "小圈子", "avoid_topics": ["把人分成类型"]},
+      "campus_identity": {"major": "物理", "grade": "大二", "club": "天文社"},
+      "appearance": "旧夹克配牛仔裤，相机带常年挂在肩上，头发有点长",
+      "summary": "周野是那种会把一个话题从科幻聊到望远镜再聊到食堂的天体物理爱好者。他不是学不好，而是兴趣太散射，笔记本上物理公式和小说片段写在同一页。他拍照很随意，但总能在没什么特别的地方找到构图。他喜欢和人争论「问题本身有没有问对」，输了也不觉得丢面子，反而会说「这个角度我没想过」。他很少评判别人，也不太在意别人怎么看他。"
+    }
+  }
+]

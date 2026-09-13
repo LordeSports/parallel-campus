@@ -1,0 +1,6 @@
+[
+  {"tick": 20, "type": "whisper", "character_id": "pl_judge1", "text": "去图书馆看看有没有人也在看科幻"},
+  {"tick": 22, "type": "whisper", "character_id": "pl_judge2", "text": "今天去图书馆自习吧"},
+  {"tick": 28, "type": "whisper", "character_id": "pl_judge1", "text": "要是遇到聊得来的，多聊一会儿"},
+  {"tick": 30, "type": "whisper", "character_id": "pl_judge2", "text": "晚饭去第一食堂试试新窗口"}
+]

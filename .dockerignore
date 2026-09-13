@@ -1,0 +1,41 @@
+# ── 依赖：镜像内由 npm ci / pip 全新安装 ──
+# 绝不能把本机（Windows）的 node_modules COPY 进 Linux 镜像，
+# 否则 .bin/tsc 等 shim 会覆盖 Linux 原生版本 → "Permission denied" (exit 126)，
+# esbuild/rollup 等平台二进制也会被换成 win32 版。
+**/node_modules
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+
+# ── 构建产物：镜像内重新构建 ──
+frontend/dist
+frontend/.vite
+
+# ── 版本控制 / 编辑器 ──
+.git
+.gitignore
+.vscode
+.idea
+
+# ── 密钥：绝不进构建上下文 ──
+.env
+.env.local
+*.pem
+
+# ── 运行数据 / 数据库（含用户内容，绝不进镜像）──
+backend/data
+backend/data_smoke
+data
+*.db
+*.db-shm
+*.db-wal
+
+# ── 测试临时目录（可能在 backend/ 下生成）──
+.pytest_cache
+.mypy_cache
+.ruff_cache
+**/_pt
+**/_pc
+**/ptmp*
+**/.pcache

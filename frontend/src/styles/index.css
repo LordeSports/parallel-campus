@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+    'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 细滚动条，避免 LiveFeed 抢视觉 */
+@layer utilities {
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(107, 114, 128, 0.35) transparent;
+  }
+  .scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.35);
+    border-radius: 3px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card bg-white shadow-sm ring-1 ring-black/5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2
+      text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-muted hover:bg-black/5 hover:text-ink;
+  }
+  .btn-outline {
+    @apply btn border border-black/10 bg-white text-ink hover:border-brand-500 hover:text-brand-500;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-black/5 px-2.5 py-1 text-xs text-muted;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-black/5;
+  }
+}

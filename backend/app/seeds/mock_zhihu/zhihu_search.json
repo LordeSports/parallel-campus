@@ -1,0 +1,94 @@
+{
+  "三体": [
+    {
+      "Title": "《三体》里最让你震撼的是哪个设定？",
+      "ContentText": "黑暗森林法则最震撼的地方在于它把宇宙社会学压缩成两条公理，然后推导出一个冷酷的结论。刘慈欣厉害的地方是他没有停在比喻上，而是真的往下推。",
+      "Url": "https://www.zhihu.com/question/800001",
+      "AuthorName": "科幻读者",
+      "VoteUpCount": 4200
+    },
+    {
+      "Title": "如何理解《三体》中的猜疑链？",
+      "ContentText": "猜疑链的核心是：在无法确认对方善意的前提下，任何一方都无法承担先暴露自己的代价。这是博弈论意义上的困境，不是道德问题。",
+      "Url": "https://www.zhihu.com/question/800002",
+      "AuthorName": "物理系的人",
+      "VoteUpCount": 3100
+    },
+    {
+      "Title": "《三体》的文学性到底如何？",
+      "ContentText": "大刘的文笔常被吐槽，但他的想象力密度足够覆盖这个短板。他写的不是人物，是文明尺度上的选择。",
+      "Url": "https://www.zhihu.com/question/800003",
+      "AuthorName": "中文系",
+      "VoteUpCount": 1800
+    }
+  ],
+  "机器学习": [
+    {
+      "Title": "机器学习入门应该先学什么？",
+      "ContentText": "先学概率和线性代数，不要一上来就调库。理解模型在做什么比跑通代码重要得多，否则你只是在使用一个黑箱。",
+      "Url": "https://www.zhihu.com/question/810001",
+      "AuthorName": "算法工程师",
+      "VoteUpCount": 5600
+    },
+    {
+      "Title": "可解释性研究现在到哪一步了？",
+      "ContentText": "目前主流方法还是事后解释，真正的内在可解释模型在复杂任务上性能还差一截。这个gap短期内很难填。",
+      "Url": "https://www.zhihu.com/question/810002",
+      "AuthorName": "研究员",
+      "VoteUpCount": 2300
+    },
+    {
+      "Title": "Transformer 为什么有效？",
+      "ContentText": "注意力机制本质上是让每个位置都能直接访问全局信息，避免了序列建模的瓶颈。但它的表达能力上界在哪里，还没有定论。",
+      "Url": "https://www.zhihu.com/question/810003",
+      "AuthorName": "在读博士",
+      "VoteUpCount": 4100
+    }
+  ],
+  "独立游戏": [
+    {
+      "Title": "独立游戏开发最难的是哪一步？",
+      "ContentText": "不是技术，是坚持做完。大部分项目死在 60% 进度上，因为那时候新鲜感没了，问题却越来越多。",
+      "Url": "https://www.zhihu.com/question/820001",
+      "AuthorName": "独立开发者",
+      "VoteUpCount": 3800
+    },
+    {
+      "Title": "小体量游戏怎么做出记忆点？",
+      "ContentText": "机制要能一句话说清楚，然后在这句话上做深度。小而深比大而平更容易被记住。",
+      "Url": "https://www.zhihu.com/question/820002",
+      "AuthorName": "游戏策划",
+      "VoteUpCount": 2700
+    },
+    {
+      "Title": "像素风格是不是偷懒？",
+      "ContentText": "像素是限制，限制会逼出设计。好的像素美术在信息密度上不比高清差，它只是换了一种表达方式。",
+      "Url": "https://www.zhihu.com/question/820003",
+      "AuthorName": "像素画师",
+      "VoteUpCount": 1500
+    }
+  ],
+  "_default": [
+    {
+      "Title": "这个话题下有哪些值得看的讨论？",
+      "ContentText": "从已有回答看，讨论主要集中在实际经验和长期影响两方面，短期结论往往不靠谱。",
+      "Url": "https://www.zhihu.com/question/830001",
+      "AuthorName": "围观的人",
+      "VoteUpCount": 860
+    },
+    {
+      "Title": "如何系统了解一个陌生领域？",
+      "ContentText": "先找三篇观点互相矛盾的文章，比读十篇观点一致的更有用。矛盾之处往往就是关键分歧点。",
+      "Url": "https://www.zhihu.com/question/830002",
+      "AuthorName": "学习方法",
+      "VoteUpCount": 2400
+    },
+    {
+      "Title": "信息太多的时候怎么筛选？",
+      "ContentText": "用问题筛，不用标题筛。先写下你想知道什么，再去找谁认真回答过它。",
+      "Url": "https://www.zhihu.com/question/830003",
+      "AuthorName": "编辑",
+      "VoteUpCount": 1900
+    }
+  ]
+}

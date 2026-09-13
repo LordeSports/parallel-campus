@@ -1,0 +1,63 @@
+--- system ---
+{{ common_prefix }}
+你要写一段两个大学生在校园里相遇时的真实对话。一次生成完整的一整段，不要分多次。
+
+输出 JSON：
+{
+  "turns": [{"speaker_id": "角色id", "text": "≤60字的一句话"}, ...],
+  "a_to_b": {"affinity_delta": -20~25, "tags": ["≤3个印象标签"], "memory": "≤60字第一人称，必须包含对方名字"},
+  "b_to_a": {"affinity_delta": -20~25, "tags": ["≤3个印象标签"], "memory": "≤60字第一人称，必须包含对方名字"},
+  "mood_a": {"valence": -0.3~0.3, "arousal": -0.3~0.3},
+  "mood_b": {"valence": -0.3~0.3, "arousal": -0.3~0.3},
+  "ended_because": "≤20字，说明为什么聊完/结束"
+}
+
+硬约束：
+1. turns 必须 4–{{ max_turns }} 轮，**严格交替发言**，speaker_id 只能是 {{ a.id }} 或 {{ b.id }}。
+2. 每句话 ≤60 字，口语化，符合各自的说话风格和当前心情。
+3. 对话内容要具体：可以聊兴趣、聊当下的事、聊刚才发生的事件，不要空泛的寒暄。
+4. 两个人都有自己的性格，可能聊得来，也可能聊得不投机——affinity_delta 必须与对话内容一致（聊得来为正，争执为负）。
+5. memory 是第一人称的、写给自己看的一句话，必须出现对方名字。
+6. 不要说"我是AI"；不要编造知乎链接。
+--- user ---
+【地点与时间】
+{{ scene.time_label }}，{{ scene.location_name }}
+氛围：{{ scene.ambience }}
+天气：{{ scene.weather_text }}
+
+【A】{{ a.name }}（心情：{{ a.mood_label }}）
+{{ a.persona_brief }}
+
+【B】{{ b.name }}（心情：{{ b.mood_label }}）
+{{ b.persona_brief }}
+
+【A 对 B 的关系】
+好感 {{ relation_ab.affinity }}，熟悉度：{{ relation_ab.familiarity_label }}
+印象：{{ relation_ab.tags | join("、") or "还没有印象" }}
+
+【B 对 A 的关系】
+好感 {{ relation_ba.affinity }}，熟悉度：{{ relation_ba.familiarity_label }}
+印象：{{ relation_ba.tags | join("、") or "还没有印象" }}
+
+{% if opener %}
+【{{ a.name }} 的开场白】
+「{{ opener }}」
+{% endif %}
+
+【{{ a.name }} 最近记得的事】
+{% for m in memories_a %}· {{ m }}
+{% else %}· 没什么相关的
+{% endfor %}
+
+【{{ b.name }} 最近记得的事】
+{% for m in memories_b %}· {{ m }}
+{% else %}· 没什么相关的
+{% endfor %}
+
+{% if events %}
+【校园里正在发生】
+{% for e in events %}· {{ e }}
+{% endfor %}
+{% endif %}
+
+请输出对话 JSON。第一句必须是 {% if opener %}{{ a.name }} 复述或延伸开场白{% else %}{{ a.name }} 先开口{% endif %}。

@@ -1,0 +1,40 @@
+{
+  "weekday_courses": {
+    "1": [["08:00", "09:30", "teaching_a", "上课：专业课"], ["14:00", "15:30", "teaching_a", "上课：公共课"]],
+    "2": [["10:00", "11:30", "teaching_a", "上课：专业课"]],
+    "3": [["08:00", "09:30", "teaching_a", "上课：专业课"], ["14:00", "15:30", "teaching_a", "上课：选修"]],
+    "4": [["10:00", "11:30", "teaching_a", "上课：专业课"], ["16:00", "17:30", "teaching_a", "上课：实验"]],
+    "5": [["08:00", "09:30", "teaching_a", "上课：专业课"]],
+    "6": [],
+    "7": []
+  },
+  "campus_events": [
+    {"day": 1, "title": "社团招新周开始", "location_id": "field", "start": "14:00", "duration_ticks": 8, "tags": ["校园生活", "社交"]},
+    {"day": 2, "title": "图书馆延长开放到 23:30", "location_id": "library", "start": "18:00", "duration_ticks": 10, "tags": ["考研", "效率"]},
+    {"day": 3, "title": "湖边观鸟社晨间活动", "location_id": "lakeside", "start": "07:00", "duration_ticks": 4, "tags": ["自然", "摄影"]},
+    {"day": 4, "title": "食堂新窗口试营业", "location_id": "canteen", "start": "11:30", "duration_ticks": 4, "tags": ["美食", "校园生活"]},
+    {"day": 5, "title": "辩论队公开赛", "location_id": "club_room", "start": "19:00", "duration_ticks": 6, "tags": ["社会议题", "法律"]},
+    {"day": 6, "title": "校园夜跑", "location_id": "field", "start": "20:00", "duration_ticks": 4, "tags": ["体育", "健康"]},
+    {"day": 7, "title": "奶茶店买一送一", "location_id": "milktea", "start": "15:00", "duration_ticks": 6, "tags": ["美食", "社交"]}
+  ],
+  "default_schedule": {
+    "weekday": [
+      ["07:00", "08:00", "canteen", "吃早饭"],
+      ["08:00", "11:30", "teaching_a", "上课"],
+      ["11:30", "13:00", "canteen", "吃午饭"],
+      ["13:00", "17:30", "library", "自习"],
+      ["17:30", "19:00", "canteen", "吃晚饭"],
+      ["19:00", "21:30", "library", "自习"],
+      ["21:30", "23:30", "dorm", "休息"]
+    ],
+    "weekend": [
+      ["07:00", "09:00", "dorm", "赖床"],
+      ["09:00", "11:30", "milktea", "喝奶茶闲逛"],
+      ["11:30", "13:00", "canteen", "吃午饭"],
+      ["13:00", "16:00", "field", "散步/运动"],
+      ["16:00", "18:00", "lakeside", "发呆"],
+      ["18:00", "19:30", "canteen", "吃晚饭"],
+      ["19:30", "23:30", "dorm", "打游戏/休息"]
+    ]
+  }
+}

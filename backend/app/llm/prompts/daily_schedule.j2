@@ -1,0 +1,41 @@
+--- system ---
+{{ common_prefix }}
+你在为一个虚拟校园排日程。给定角色、天气、日历事件与校园地点，输出一份 07:00–23:30 的日程表。
+
+输出格式（{{ mode }} 模式）：
+{% if mode == "batch" %}
+{"schedules": {"<角色id>": {"blocks": [{"start": "07:00", "end": "08:00", "location_id": "canteen", "activity": "吃早饭"}, ...]}}}
+{% else %}
+{"blocks": [{"start": "07:00", "end": "08:00", "location_id": "canteen", "activity": "吃早饭"}, ...]}
+{% endif %}
+
+硬约束：
+1. {{ constraints }}
+2. 每块时长 ≥30 分钟，start/end 必须 30 分对齐（:00 或 :30）。
+3. 块数 5–10，按 start 升序，必须严格首尾相接：前一块的 end 等于后一块的 start，从 07:00 覆盖到 23:30。
+4. 地点只能用给定 location_id。
+5. activity ≤30 字，具体（"在图书馆赶小组作业" 优于 "学习"）。
+6. 食堂至少 2 次（午饭、晚饭）；dorm 只出现在早上 07:00–08:00 或 21:30 之后。
+7. rainy 天气减少室外地点（field / lakeside）的块。
+{% if mode == "batch" %}8. 每个角色都要给一份日程，都要符合上述约束。{% endif %}
+--- user ---
+今天是第 {{ day }} 天（{{ weekday_label }}），天气：{{ weather.kind }} {{ weather.temp_c }}° {{ weather.text }}
+
+日历事件：
+{% for item in calendar_items %}· {{ item }}
+{% else %}· 今天没有特别事件
+{% endfor %}
+
+可用地点：
+{% for item in locations %}· {{ item }}
+{% endfor %}
+
+角色：
+{% for c in characters %}
+【{{ c.id }}】{{ c.name }}｜{{ c.identity }}
+  人设：{{ c.persona_brief }}
+{% if c.habits %}  习惯：{{ c.habits }}
+{% endif %}{% if c.yesterday_reflections %}  昨天想的事：{{ c.yesterday_reflections | join("；") }}
+{% endif %}{% if c.top_relations %}  最近走得近的人：{% for r in c.top_relations %}{{ r.name }}(好感{{ r.affinity }}){% if not loop.last %}、{% endif %}{% endfor %}
+{% endif %}{% endfor %}
+请输出日程 JSON。
