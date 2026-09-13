@@ -1,6 +1,6 @@
 /** 应用骨架：TopBar（固定 56px）+ NavTabs + 内容出口（spec/07 §2）。 */
 
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useSession } from '../store/session';
 import { SPEED_BADGE, moodEmoji, useWorld, weatherLabel } from '../store/world';
@@ -37,6 +37,7 @@ export default function AppShell() {
   const user = useSession((s) => s.user);
   const logout = useSession((s) => s.logout);
   const navigate = useNavigate();
+  const location = useLocation();
   const state = useWorld((s) => s.state);
   const me = useWorld((s) => (user?.character_id ? s.characters[user.character_id] : undefined));
 
@@ -46,7 +47,7 @@ export default function AppShell() {
   return (
     <div className="flex min-h-full flex-col bg-paper">
       {/* TopBar */}
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-black/5 bg-white/90 px-4 backdrop-blur">
+      <header className="glass-header sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-black/5 px-4 backdrop-blur">
         <button
           type="button"
           onClick={() => navigate('/campus')}
@@ -110,7 +111,7 @@ export default function AppShell() {
       )}
 
       {/* NavTabs */}
-      <nav className="sticky top-14 z-20 flex shrink-0 gap-1 border-b border-black/5 bg-white/80 px-3 backdrop-blur">
+      <nav className="sticky top-14 z-20 flex shrink-0 gap-1 border-b border-black/5 bg-white/65 px-3 backdrop-blur">
         {TABS.map((t) => (
           <NavLink
             key={t.to}
@@ -130,7 +131,9 @@ export default function AppShell() {
       </nav>
 
       <main className="min-h-0 flex-1">
-        <Outlet />
+        <div key={location.pathname} className="page-enter h-full">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

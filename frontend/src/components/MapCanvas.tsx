@@ -46,6 +46,7 @@ function CharacterDot({
 
   return (
     <g
+      className="map-character"
       transform={`translate(${x} ${y})`}
       opacity={c.is_asleep ? 0.6 : 1}
       onClick={() => onPick(c.id)}
@@ -87,20 +88,15 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
     [state?.active_events],
   );
 
-  /** 地点 → 在场角色（按后端 occupants 顺序）。 */
+  /** 地点 → 在场角色。角色状态是唯一事实来源，避免 occupants 快照过期造成重复显示。 */
   const byLocation = useMemo(() => {
     const map = new Map<string, CharacterSummaryView[]>();
-    const index = new Map(Object.values(characters).map((c) => [c.id, c]));
     for (const loc of locations) {
-      const ordered = (loc.occupants ?? [])
-        .map((id) => index.get(id))
-        .filter((c): c is CharacterSummaryView => Boolean(c));
-      map.set(
-        loc.id,
-        ordered.length
-          ? ordered
-          : Object.values(characters).filter((c) => c.location_id === loc.id),
+      const seen = new Set<string>();
+      const current = Object.values(characters).filter(
+        (c) => c.location_id === loc.id && !seen.has(c.id) && seen.add(c.id),
       );
+      map.set(loc.id, current);
     }
     return map;
   }, [locations, characters]);
@@ -134,7 +130,7 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
         preserveAspectRatio="xMidYMid meet"
         className="h-full w-full"
       >
-        <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="#f1f7f0" />
+          <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="#eef4f5" />
         {[...Array(20)].map((_, i) => (
           <circle
             key={i}
@@ -163,10 +159,10 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
                 width={loc.w}
                 height={loc.h}
                 rx={16}
-                fill="#ffffff"
+                fill="#fbfdff"
                 stroke={isActive ? '#0084ff' : '#dbe3ea'}
                 strokeWidth={isActive ? 2.5 : 1.5}
-                className={isActive ? 'animate-pulse-ring' : undefined}
+                className={isActive ? 'animate-pulse-ring map-location' : 'map-location'}
               />
               <text x={loc.x + 12} y={loc.y + 24} fontSize="18">
                 {loc.emoji}

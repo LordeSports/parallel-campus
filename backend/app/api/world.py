@@ -196,7 +196,8 @@ async def world_locations(session: SessionDep, user: CurrentUser) -> list[Locati
                 x=loc.x, y=loc.y, w=loc.w, h=loc.h, outdoor=loc.outdoor,
                 description=loc.description, affordances=list(loc.affordances),
                 ambience=dict(loc.ambience), capacity=loc.capacity,
-                occupants=[c.id for c in world.occupants(loc.id)],
+                # 以内存角色当前位置为准，避免缓存的地点快照在移动后短暂重复。
+                occupants=list(dict.fromkeys(c.id for c in world.occupants(loc.id))),
             )
         )
     return out
