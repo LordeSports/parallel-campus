@@ -53,6 +53,12 @@ function CharacterDot({
       style={{ cursor: 'pointer' }}
     >
       <circle r={r} fill="#ffffff" stroke={stroke} strokeWidth={c.is_me ? 3 : 2} />
+      {(c.is_me || c.kind === 'player') && !c.is_asleep && c.activity && (
+        <g className="agent-bubble" transform={`translate(22 ${-r - 8})`}>
+          <rect width={Math.min(150, Math.max(70, c.activity.length * 12))} height="22" rx="11" fill="#ffffff" stroke="#dbeafe" />
+          <text x="10" y="15" fontSize="10" fill="#2563eb">{c.activity.slice(0, 12)}</text>
+        </g>
+      )}
       <text textAnchor="middle" dy="5" fontSize="14" style={{ pointerEvents: 'none' }}>
         {face}
       </text>
@@ -130,7 +136,32 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
         preserveAspectRatio="xMidYMid meet"
         className="h-full w-full"
       >
-          <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="#eef4f5" />
+        <defs>
+          <linearGradient id="campus-sky" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#eaf3ff" />
+            <stop offset="0.52" stopColor="#f7fbf2" />
+            <stop offset="1" stopColor="#fff8ec" />
+          </linearGradient>
+          <filter id="map-shadow" x="-20%" y="-20%" width="140%" height="150%">
+            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#94a3b8" floodOpacity=".18" />
+          </filter>
+          <filter id="event-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="7" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill="url(#campus-sky)" />
+        <path d="M0 222 C190 188 290 258 440 218 S720 178 1000 230 L1000 390 C780 344 600 402 430 370 S160 344 0 390Z" fill="#dff2dc" opacity=".72" />
+        <path d="M0 420 C220 390 320 460 510 424 S820 390 1000 430 L1000 600 0 600Z" fill="#f3ead6" opacity=".42" />
+        <path d="M130 600 C210 470 280 350 460 280 S720 208 900 54" fill="none" stroke="#ffffff" strokeWidth="26" opacity=".7" strokeLinecap="round" />
+        <path d="M80 160 C270 250 370 360 540 420 S760 490 940 535" fill="none" stroke="#ffffff" strokeWidth="18" opacity=".56" strokeLinecap="round" />
+        <path d="M690 280 C770 250 900 260 965 310 C940 380 800 410 710 360Z" fill="#bde9ef" opacity=".82" />
+        <path d="M720 300 C795 286 880 300 934 330" fill="none" stroke="#fff" strokeWidth="5" opacity=".55" strokeLinecap="round" />
+        {[{x:30,y:222},{x:350,y:218},{x:675,y:208},{x:955,y:205},{x:450,y:452},{x:900,y:450}].map((tree) => (
+          <g key={`${tree.x}-${tree.y}`} className="map-tree" transform={`translate(${tree.x} ${tree.y})`}>
+            <circle r="18" fill="#9ed7a0" opacity=".9" /><circle cx="12" cy="4" r="12" fill="#83c98c" opacity=".9" /><rect x="-3" y="13" width="6" height="16" rx="3" fill="#b9825b" />
+          </g>
+        ))}
         {[...Array(20)].map((_, i) => (
           <circle
             key={i}
@@ -147,6 +178,7 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
           const occ = byLocation.get(loc.id) ?? [];
           const isHover = hover === loc.id;
           const isActive = activeIds.has(loc.id);
+          const eventsHere = (state?.active_events ?? []).filter((event) => event.location_id === loc.id);
           return (
             <g
               key={loc.id}
@@ -162,6 +194,7 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
                 fill="#fbfdff"
                 stroke={isActive ? '#0084ff' : '#dbe3ea'}
                 strokeWidth={isActive ? 2.5 : 1.5}
+                filter="url(#map-shadow)"
                 className={isActive ? 'animate-pulse-ring map-location' : 'map-location'}
               />
               <text x={loc.x + 12} y={loc.y + 24} fontSize="18">
@@ -179,6 +212,13 @@ export default function MapCanvas({ onPickCharacter }: MapCanvasProps) {
               >
                 {occ.length}/{loc.capacity}
               </text>
+
+              {eventsHere.slice(0, 2).map((event, index) => (
+                <g key={event.id} transform={`translate(${loc.x + loc.w - 28 - index * 24} ${loc.y + loc.h - 24})`} filter="url(#event-glow)" className="map-event-marker">
+                  <circle r="12" fill="#fff7ed" stroke="#fb923c" strokeWidth="1.5" />
+                  <text textAnchor="middle" dy="5" fontSize="12">{index === 0 ? '✦' : '!'}</text>
+                </g>
+              ))}
 
               {/* 雨纹（室外） */}
               {rainy &&

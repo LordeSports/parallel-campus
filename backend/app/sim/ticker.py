@@ -41,10 +41,24 @@ def decide_mode(observers: int, admin_override: str | None, remaining_ticks: int
     return "online" if observers >= 1 else "idle"
 
 
-def tick_period(mode: str) -> float:
+def tick_period(mode: str, observers: int | None = None) -> float:
+    """返回当前 tick 间隔。
+
+    自动模式下无人观看时加速；有人观看时随着观众数增加逐步放慢，让每个
+    页面有足够时间观察事件。管理员指定 online/idle 时使用固定间隔。
+    """
     if mode == "online":
-        return float(settings.tick_seconds_online)
+        base = float(settings.tick_seconds_online)
+        if observers is not None and observers > 0:
+            return min(180.0, base * (1 + 0.5 * (observers - 1)))
+        if observers == 0:
+            return max(1.0, min(base, 5.0))
+        return base
     if mode == "idle":
+        if observers == 0:
+            return max(1.0, min(float(settings.tick_seconds_idle), 5.0))
+        if observers is not None and observers > 0:
+            return min(180.0, float(settings.tick_seconds_online) * (1 + 0.5 * (observers - 1)))
         return float(settings.tick_seconds_idle)
     return 0.0
 
@@ -176,7 +190,7 @@ class Ticker:
 
                 elapsed = asyncio.get_event_loop().time() - started
                 self.last_tick_finished = asyncio.get_event_loop().time()
-                period = tick_period(mode)
+                period = tick_period(mode, observers if world.state.admin_override is None else None)
                 await self._wait_for_control(max(0.0, period - elapsed))
             except asyncio.CancelledError:
                 raise
@@ -202,7 +216,10 @@ class Ticker:
             # 时间推进也在锁内，避免与管理员跳时交错。
             crossed = world.advance()
             world.emit(make_event("tick", world.tick, world.day,
-                                  world.tick_payload(tick_period(world.state.speed_mode))))
+                                  world.tick_payload(tick_period(
+                                      world.state.speed_mode,
+                                      bus.subscriber_count() if world.state.admin_override is None else None,
+                                  ))))
             # ── 阶段 A：环境推进（含 LLM 的热榜/事件，但只在**写短事务**里落库）──
             async with write_session() as session:
                 # 3. 06:00 新一天

@@ -177,7 +177,10 @@ async def world_state(session: SessionDep, user: OptionalUser) -> WorldStateView
             text=weather.get("text", ""),
         ),
         speed_mode=world.state.speed_mode,
-        tick_seconds=tick_period(world.state.speed_mode),
+        tick_seconds=tick_period(
+            world.state.speed_mode,
+            bus.subscriber_count() if world.state.admin_override is None else None,
+        ),
         observers=bus.subscriber_count(),
         degraded=bool(world.state.degraded),
         active_events=[active_event_view(e) for e in world.active_events],

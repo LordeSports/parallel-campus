@@ -179,11 +179,14 @@ async def _generate_schedules(session: AsyncSession, world, calendar_items: list
                 log.warning("NPC 批量日程失败: %s", exc)
             except Exception:
                 log.exception("NPC 批量日程异常")
-        for c in npcs:
-            sched = _validated(batch.get(c.id), world.day)
-            c.schedule = sched.model_dump()
-            c.schedule_day = world.day
-            session.add(c)
+    for c in npcs:
+        sched = _validated(batch.get(c.id), world.day)
+        c.schedule = sched.model_dump()
+        c.schedule_day = world.day
+        # world 中的角色对象来自独立短会话；同一事务可能已通过
+        # _top_relations 载入同 ID 的 ORM 实例，必须 merge 避免 identity 冲突。
+        merged = await session.merge(c)
+        world.characters[c.id] = merged
 
     # ── player 单人 ──
     for c in players:
@@ -217,7 +220,8 @@ async def _generate_schedules(session: AsyncSession, world, calendar_items: list
         final = _validated(sched, world.day)
         c.schedule = final.model_dump()
         c.schedule_day = world.day
-        session.add(c)
+        merged = await session.merge(c)
+        world.characters[c.id] = merged
 
 
 def _validated(sched: DailySchedule | None, day: int) -> DailySchedule:

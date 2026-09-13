@@ -24,7 +24,7 @@ export default function AdminSimulation({ overview, settings, busy, run }: {
           <Field label="慢速模式间隔（秒）"><input className={fieldClass} type="number" required min="1" max="86400" value={simulation.tick_seconds_idle} onChange={e => setSimulation({ ...simulation, tick_seconds_idle: Number(e.target.value) })} /></Field></div>
         {simulation.mode === 'fast_forward' && <Field label="快进步数（1–1000）"><input className={fieldClass} type="number" min="1" max="1000" required value={simulation.ticks} onChange={e => setSimulation({ ...simulation, ticks: Number(e.target.value) })} /></Field>}
         <button className="btn-primary" disabled={busy}>应用运行设置</button>
-        <p className="text-xs text-muted">正在执行的步骤会先完成。暂停后可精确布置场景。</p>
+        <p className="text-xs text-muted">自动模式无人观看时约 5 秒一步；1 位观众按实时间隔运行，观众越多会逐步放慢，最多 180 秒一步。管理员固定模式会覆盖自动规则。</p>
       </form>
     </Section>
     <div className="space-y-6"><Section title="调整虚拟时间" description="跳到未来并暂停。跳过时段不会补算活动、对话或报告；需要完整模拟请使用快进。">
