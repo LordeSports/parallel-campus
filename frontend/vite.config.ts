@@ -12,7 +12,8 @@ export default defineConfig(({ mode }) => {
     proxy: {
       '/api': {
         target: env.VITE_API_TARGET || 'http://localhost:8000',
-        changeOrigin: true,
+        // 保留浏览器 Host，让管理员同源校验在开发代理下也成立。
+        changeOrigin: false,
         // SSE 需要关闭缓冲
         configure: (proxy) => {
           proxy.on('proxyRes', (proxyRes) => {

@@ -36,6 +36,8 @@ def decide_mode(observers: int, admin_override: str | None, remaining_ticks: int
         return "paused"
     if admin_override == "fast_forward" or remaining_ticks > 0:
         return "fast_forward"
+    if admin_override in {"online", "idle"}:
+        return admin_override
     return "online" if observers >= 1 else "idle"
 
 
@@ -53,6 +55,7 @@ class Ticker:
     def __init__(self) -> None:
         self._task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
+        self._wakeup = asyncio.Event()
         self.world: World | None = None
         self.last_tick_started: float = 0.0
         self.last_tick_finished: float = 0.0
@@ -150,6 +153,7 @@ class Ticker:
 
         while not self._stop.is_set():
             try:
+                self._wakeup.clear()
                 world = self.world
                 if world is None:
                     break
@@ -159,7 +163,7 @@ class Ticker:
                 world.state.observer_count = observers
 
                 if mode == "paused":
-                    await asyncio.sleep(1.0)
+                    await self._wait_for_control(1.0)
                     continue
 
                 started = asyncio.get_event_loop().time()
@@ -169,35 +173,36 @@ class Ticker:
                 except Exception:
                     log.exception("tick 失败")
                     world.state.llm_fail_streak += 1
-                finally:
-                    if world.state.remaining_ticks > 0:
-                        world.state.remaining_ticks -= 1
-                        if world.state.remaining_ticks == 0:
-                            world.state.admin_override = None
-                            log.info("fast_forward 完成")
 
                 elapsed = asyncio.get_event_loop().time() - started
                 self.last_tick_finished = asyncio.get_event_loop().time()
                 period = tick_period(mode)
-                await asyncio.sleep(max(0.0, period - elapsed))
+                await self._wait_for_control(max(0.0, period - elapsed))
             except asyncio.CancelledError:
                 raise
             except Exception:
                 log.exception("Ticker 循环异常")
                 await asyncio.sleep(1.0)
 
+    async def _wait_for_control(self, seconds: float) -> None:
+        if seconds <= 0:
+            await asyncio.sleep(0)
+            return
+        try:
+            await asyncio.wait_for(self._wakeup.wait(), timeout=seconds)
+        except asyncio.TimeoutError:
+            pass
+
     # ── 单个 tick（04 §2 的 20 步）──
 
     async def tick(self, world: World) -> None:
-        # 1. 推进时间
-        crossed = world.advance()
-        # 2. emit tick
-        world.emit(
-            make_event("tick", world.tick, world.day, world.tick_payload(
-                tick_period(world.state.speed_mode)))
-        )
-
         async with write_lock:
+            if self.running and world.state.admin_override == "paused":
+                return
+            # 时间推进也在锁内，避免与管理员跳时交错。
+            crossed = world.advance()
+            world.emit(make_event("tick", world.tick, world.day,
+                                  world.tick_payload(tick_period(world.state.speed_mode))))
             # ── 阶段 A：环境推进（含 LLM 的热榜/事件，但只在**写短事务**里落库）──
             async with write_session() as session:
                 # 3. 06:00 新一天
@@ -307,6 +312,14 @@ class Ticker:
                     sleep_all(world, session)
 
                 # 20. 落库 + 清理
+                if self.running and world.state.remaining_ticks > 0:
+                    world.state.remaining_ticks -= 1
+                    if world.state.remaining_ticks == 0:
+                        world.state.admin_override = None
+                        world.state.speed_mode = decide_mode(bus.subscriber_count(), None, 0)
+                        world.emit(make_event("world_changed", world.tick, world.day,
+                                              {"tick": world.tick, "day": world.day}))
+                        log.info("fast_forward 完成")
                 events = bus.take_pending()
                 for c in world.characters.values():
                     c.dialogue_id = None       # tick 末清空（02 §3.3）
@@ -428,22 +441,39 @@ class Ticker:
 
     # ── admin ──
 
+    async def configure(self, mode: str, ticks: int = 48, intervals: dict | None = None) -> str:
+        from ..admin_settings import save_runtime_settings
+
+        async with write_lock:
+            world = self.world or await get_world()
+            state = WorldState(**world.state.model_dump())
+            state.admin_override = None if mode == "auto" else mode
+            state.remaining_ticks = ticks if mode == "fast_forward" else 0
+            state.speed_mode = decide_mode(bus.subscriber_count(), state.admin_override, state.remaining_ticks)
+            if intervals:
+                save_runtime_settings(intervals)
+            async with write_session() as session:
+                state = await session.merge(state)
+            world.state = state
+            world.emit(make_event("world_changed", world.tick, world.day,
+                                  {"tick": world.tick, "day": world.day}))
+            self.wake()
+            return state.speed_mode
+
+    def wake(self) -> None:
+        """控制变更后唤醒等待中的循环。"""
+        self._wakeup.set()
+
     async def fast_forward(self, ticks: int) -> int:
-        world = self.world or await get_world()
-        world.state.admin_override = "fast_forward"
-        world.state.remaining_ticks = max(1, ticks)
-        return world.state.remaining_ticks
+        await self.configure("fast_forward", max(1, ticks))
+        return max(1, ticks)
 
     async def pause(self) -> str:
-        world = self.world or await get_world()
-        world.state.admin_override = "paused"
+        await self.configure("paused")
         return "paused"
 
     async def resume(self) -> str:
-        world = self.world or await get_world()
-        world.state.admin_override = None
-        world.state.remaining_ticks = 0
-        return decide_mode(bus.subscriber_count(), None, 0)
+        return await self.configure("auto")
 
 
 ticker = Ticker()

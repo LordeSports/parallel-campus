@@ -73,6 +73,7 @@ export default function AppShell() {
             </span>
           ))}
           <SpeedBadge />
+          <NavLink to="/admin" className="btn-ghost px-2 text-xs">管理</NavLink>
 
           {me && (
             <span className="chip bg-amber-50 text-amber-700" title="我的分身">

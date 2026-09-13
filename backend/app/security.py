@@ -21,6 +21,9 @@ OAUTH_STATE_COOKIE = "pc_oauth_state"
 SESSION_MAX_AGE = 7 * 24 * 3600          # 7d
 OAUTH_STATE_MAX_AGE = 10 * 60            # 10min
 SESSION_SALT = "pc-session-v1"
+ADMIN_SESSION_SALT = "pc-admin-v1"
+ADMIN_COOKIE = "pc_admin"
+ADMIN_SESSION_MAX_AGE = 8 * 3600
 OAUTH_STATE_SALT = "pc-oauth-state-v1"
 
 
@@ -46,6 +49,31 @@ def verify_session(token: str) -> str | None:
         return None
     uid = data.get("uid")
     return uid if isinstance(uid, str) and uid else None
+
+
+def sign_admin_session(username: str) -> str:
+    return _serializer(ADMIN_SESSION_SALT).dumps({"admin": username, "version": _admin_version()})
+
+
+def _admin_version() -> str:
+    return hmac.new(settings.session_secret.encode(),
+                    (settings.admin_username + "\0" + settings.admin_password).encode(),
+                    hashlib.sha256).hexdigest()
+
+
+def verify_admin_session(token: str | None) -> str | None:
+    if not token or not settings.admin_password:
+        return None
+    try:
+        data = _serializer(ADMIN_SESSION_SALT).loads(token, max_age=ADMIN_SESSION_MAX_AGE)
+    except Exception:
+        return None
+    if not isinstance(data, dict) or data.get("admin") != settings.admin_username:
+        return None
+    version = data.get("version")
+    if not isinstance(version, str) or not hmac.compare_digest(version, _admin_version()):
+        return None
+    return settings.admin_username
 
 
 def sign_oauth_state() -> str:
@@ -130,6 +158,7 @@ def dumps_json(obj: Any) -> str:
 __all__ = [
     "SESSION_COOKIE", "OAUTH_STATE_COOKIE", "SESSION_MAX_AGE", "OAUTH_STATE_MAX_AGE",
     "sign_session", "verify_session", "sign_oauth_state", "verify_oauth_state",
+    "sign_admin_session", "verify_admin_session",
     "encrypt_token", "decrypt_token", "redact", "sha1_short", "check_admin_token",
     "dumps_json",
 ]

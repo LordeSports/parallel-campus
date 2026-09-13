@@ -25,7 +25,7 @@ SseEventType = Literal[
     "hello", "heartbeat", "tick", "weather", "event_started", "event_ended",
     "character_moved", "character_activity", "dialogue_started", "dialogue_turn",
     "dialogue_ended", "post_created", "comment_created", "like_created", "dm_sent",
-    "whisper_response", "reflection", "briefing", "report_ready", "degraded",
+    "whisper_response", "reflection", "briefing", "report_ready", "degraded", "world_changed",
 ]
 
 # ── ID 前缀 ──

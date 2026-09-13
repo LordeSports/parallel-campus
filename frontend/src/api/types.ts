@@ -20,12 +20,65 @@ export type ActiveEventView = {
   "status"?: string;
 };
 
+export type AdminLoginRequest = {
+  "username": string;
+  "password": string;
+};
+
+export type AdminOverviewView = {
+  "world": WorldStateView;
+  "status": AdminStatusView;
+  "control_mode": string;
+  "counts": Record<string, number>;
+  "usage_by_model": UsageGroupView[];
+  "recent_usage": UsageItemView[];
+  "scenes": ActiveEventView[];
+};
+
+export type AdminSessionView = {
+  "enabled": boolean;
+  "authenticated": boolean;
+  "username"?: string | null;
+};
+
 export type AdminStatusView = {
   "mode": string;
   "remaining_ticks"?: number;
   "tick"?: number;
   "llm_today"?: LlmTodayView;
   "zhihu_today"?: ZhihuTodayView;
+};
+
+export type AdminWeatherRequest = {
+  "kind": "sunny" | "cloudy" | "rainy" | "foggy" | "windy";
+  "temp_c": number;
+  "text"?: string;
+};
+
+export type ApiSettingsRequest = {
+  "llm_base_url": string;
+  "llm_model_strong": string;
+  "llm_model_cheap": string;
+  "llm_api_key"?: string | null;
+  "zhihu_access_secret"?: string | null;
+  "zhihu_oauth_app_id"?: string;
+  "zhihu_oauth_app_key"?: string | null;
+  "clear_llm_api_key"?: boolean;
+  "clear_zhihu_access_secret"?: boolean;
+  "clear_zhihu_oauth_app_key"?: boolean;
+};
+
+export type ApiSettingsView = {
+  "llm_base_url": string;
+  "llm_model_strong": string;
+  "llm_model_cheap": string;
+  "llm_api_key_configured": boolean;
+  "zhihu_access_secret_configured": boolean;
+  "zhihu_oauth_app_id": string;
+  "zhihu_oauth_app_key_configured": boolean;
+  "dev_mode": boolean;
+  "tick_seconds_online": number;
+  "tick_seconds_idle": number;
 };
 
 export type AuthorView = {
@@ -101,6 +154,11 @@ export type CharacterSummaryView = {
   "is_me"?: boolean;
   "dialogue_id"?: string | null;
   "energy"?: number;
+};
+
+export type ClockRequest = {
+  "day": number;
+  "minute_of_day": number;
 };
 
 export type CommentView = {
@@ -270,6 +328,35 @@ export type MoodView = {
   "arousal"?: number;
 };
 
+export type NpcRequest = {
+  "name": string;
+  "avatar_key"?: string;
+  "persona": PersonaFile;
+  "location_id"?: "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "activity"?: string;
+  "energy"?: number;
+  "mood_valence"?: number;
+  "mood_arousal"?: number;
+  "is_asleep"?: boolean;
+  "is_active"?: boolean;
+};
+
+export type NpcView = {
+  "id": string;
+  "kind": "player" | "npc" | "system";
+  "name": string;
+  "avatar_key": string;
+  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "activity"?: string;
+  "mood"?: MoodView;
+  "is_asleep"?: boolean;
+  "is_me"?: boolean;
+  "dialogue_id"?: string | null;
+  "energy"?: number;
+  "is_active": boolean;
+  "persona": PersonaFile;
+};
+
 export type PersonaFile = {
   "display_name": string;
   "archetype": string;
@@ -356,6 +443,21 @@ export type ReportView = {
   "top_friends"?: ReportFriendView[];
 };
 
+export type SceneRequest = {
+  "title": string;
+  "description"?: string;
+  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "duration_ticks"?: number;
+  "tags"?: string[];
+};
+
+export type SimulationRequest = {
+  "mode": "auto" | "paused" | "idle" | "online" | "fast_forward";
+  "tick_seconds_online"?: number;
+  "tick_seconds_idle"?: number;
+  "ticks"?: number;
+};
+
 export type Social = {
   "initiative"?: number;
   "group_pref"?: "独处" | "小圈子" | "广交";
@@ -385,6 +487,25 @@ export type SpeakingStyle = {
 export type Stance = {
   "text": string;
   "evidence"?: string[];
+};
+
+export type UsageGroupView = {
+  "model": string;
+  "calls": number;
+  "prompt_tokens": number;
+  "completion_tokens": number;
+};
+
+export type UsageItemView = {
+  "id": string;
+  "at": string;
+  "model": string;
+  "tier": string;
+  "template": string;
+  "prompt_tokens": number;
+  "completion_tokens": number;
+  "latency_ms": number;
+  "ok": boolean;
 };
 
 export type User = {
@@ -467,6 +588,9 @@ export type ZhihuTodayView = {
 };
 
 export interface paths {
+  "/api/admin/clock": {
+    put: "clock_api_admin_clock_put";
+  };
   "/api/admin/comments/{comment_id}": {
     delete: "delete_comment_api_admin_comments__comment_id__delete";
   };
@@ -475,6 +599,25 @@ export interface paths {
   };
   "/api/admin/hot-pull": {
     post: "hot_pull_api_admin_hot_pull_post";
+  };
+  "/api/admin/locations": {
+    get: "locations_api_admin_locations_get";
+  };
+  "/api/admin/login": {
+    post: "admin_login_api_admin_login_post";
+  };
+  "/api/admin/logout": {
+    post: "admin_logout_api_admin_logout_post";
+  };
+  "/api/admin/npcs": {
+    get: "npcs_api_admin_npcs_get";
+    post: "create_npc_api_admin_npcs_post";
+  };
+  "/api/admin/npcs/{character_id}": {
+    put: "update_npc_api_admin_npcs__character_id__put";
+  };
+  "/api/admin/overview": {
+    get: "overview_api_admin_overview_get";
   };
   "/api/admin/pause": {
     post: "pause_api_admin_pause_post";
@@ -488,8 +631,28 @@ export interface paths {
   "/api/admin/resume": {
     post: "resume_api_admin_resume_post";
   };
+  "/api/admin/scenes": {
+    get: "scenes_api_admin_scenes_get";
+    post: "create_scene_api_admin_scenes_post";
+  };
+  "/api/admin/scenes/{scene_id}/end": {
+    post: "end_scene_api_admin_scenes__scene_id__end_post";
+  };
+  "/api/admin/session": {
+    get: "admin_session_api_admin_session_get";
+  };
+  "/api/admin/settings": {
+    get: "get_api_settings_api_admin_settings_get";
+    put: "set_api_settings_api_admin_settings_put";
+  };
+  "/api/admin/simulation": {
+    put: "simulation_api_admin_simulation_put";
+  };
   "/api/admin/status": {
     get: "status_api_admin_status_get";
+  };
+  "/api/admin/weather": {
+    put: "weather_api_admin_weather_put";
   };
   "/api/auth/dev-login": {
     post: "dev_login_api_auth_dev_login_post";

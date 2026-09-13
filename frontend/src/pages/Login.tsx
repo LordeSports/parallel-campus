@@ -156,6 +156,7 @@ export default function Login() {
             <span className="text-black/10">|</span>
             <details className="inline-block">
               <summary className="cursor-pointer list-none hover:text-ink">其他方式</summary>
+              <a href="/admin" className="mt-2 block text-brand-600">管理员入口</a>
               <div className="mt-2 flex gap-3">
                 <button
                   type="button"

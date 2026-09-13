@@ -1476,6 +1476,813 @@
         }
       }
     },
+    "/api/admin/session": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Admin Session",
+        "operationId": "admin_session_api_admin_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/login": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Admin Login",
+        "operationId": "admin_login_api_admin_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/logout": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Admin Logout",
+        "operationId": "admin_logout_api_admin_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/admin/overview": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_api_admin_overview_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/simulation": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Simulation",
+        "operationId": "simulation_api_admin_simulation_put",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clock": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Clock",
+        "operationId": "clock_api_admin_clock_put",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/weather": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Weather",
+        "operationId": "weather_api_admin_weather_put",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminWeatherRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldStateView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/locations": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Locations",
+        "operationId": "locations_api_admin_locations_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationView"
+                  },
+                  "title": "Response Locations Api Admin Locations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/npcs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Npcs",
+        "operationId": "npcs_api_admin_npcs_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NpcView"
+                  },
+                  "title": "Response Npcs Api Admin Npcs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Npc",
+        "operationId": "create_npc_api_admin_npcs_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NpcRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NpcView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/npcs/{character_id}": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Npc",
+        "operationId": "update_npc_api_admin_npcs__character_id__put",
+        "parameters": [
+          {
+            "name": "character_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Character Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NpcRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NpcView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/scenes": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Scenes",
+        "operationId": "scenes_api_admin_scenes_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActiveEventView"
+                  },
+                  "title": "Response Scenes Api Admin Scenes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Create Scene",
+        "operationId": "create_scene_api_admin_scenes_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SceneRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveEventView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/scenes/{scene_id}/end": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "End Scene",
+        "operationId": "end_scene_api_admin_scenes__scene_id__end_post",
+        "parameters": [
+          {
+            "name": "scene_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Scene Id"
+            }
+          },
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveEventView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/settings": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Api Settings",
+        "operationId": "get_api_settings_api_admin_settings_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSettingsView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Api Settings",
+        "operationId": "set_api_settings_api_admin_settings_put",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiSettingsView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/stream": {
       "get": {
         "tags": [
@@ -1613,6 +2420,113 @@
         ],
         "title": "ActiveEventView"
       },
+      "AdminLoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLoginRequest"
+      },
+      "AdminOverviewView": {
+        "properties": {
+          "world": {
+            "$ref": "#/components/schemas/WorldStateView"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdminStatusView"
+          },
+          "control_mode": {
+            "type": "string",
+            "title": "Control Mode"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "usage_by_model": {
+            "items": {
+              "$ref": "#/components/schemas/UsageGroupView"
+            },
+            "type": "array",
+            "title": "Usage By Model"
+          },
+          "recent_usage": {
+            "items": {
+              "$ref": "#/components/schemas/UsageItemView"
+            },
+            "type": "array",
+            "title": "Recent Usage"
+          },
+          "scenes": {
+            "items": {
+              "$ref": "#/components/schemas/ActiveEventView"
+            },
+            "type": "array",
+            "title": "Scenes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "world",
+          "status",
+          "control_mode",
+          "counts",
+          "usage_by_model",
+          "recent_usage",
+          "scenes"
+        ],
+        "title": "AdminOverviewView"
+      },
+      "AdminSessionView": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "authenticated": {
+            "type": "boolean",
+            "title": "Authenticated"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "authenticated"
+        ],
+        "title": "AdminSessionView"
+      },
       "AdminStatusView": {
         "properties": {
           "mode": {
@@ -1641,6 +2555,190 @@
           "mode"
         ],
         "title": "AdminStatusView"
+      },
+      "AdminWeatherRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sunny",
+              "cloudy",
+              "rainy",
+              "foggy",
+              "windy"
+            ],
+            "title": "Kind"
+          },
+          "temp_c": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": -50.0,
+            "title": "Temp C"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "temp_c"
+        ],
+        "title": "AdminWeatherRequest"
+      },
+      "ApiSettingsRequest": {
+        "properties": {
+          "llm_base_url": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Llm Base Url"
+          },
+          "llm_model_strong": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Llm Model Strong"
+          },
+          "llm_model_cheap": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Llm Model Cheap"
+          },
+          "llm_api_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Api Key"
+          },
+          "zhihu_access_secret": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zhihu Access Secret"
+          },
+          "zhihu_oauth_app_id": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Zhihu Oauth App Id",
+            "default": ""
+          },
+          "zhihu_oauth_app_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Zhihu Oauth App Key"
+          },
+          "clear_llm_api_key": {
+            "type": "boolean",
+            "title": "Clear Llm Api Key",
+            "default": false
+          },
+          "clear_zhihu_access_secret": {
+            "type": "boolean",
+            "title": "Clear Zhihu Access Secret",
+            "default": false
+          },
+          "clear_zhihu_oauth_app_key": {
+            "type": "boolean",
+            "title": "Clear Zhihu Oauth App Key",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "llm_base_url",
+          "llm_model_strong",
+          "llm_model_cheap"
+        ],
+        "title": "ApiSettingsRequest"
+      },
+      "ApiSettingsView": {
+        "properties": {
+          "llm_base_url": {
+            "type": "string",
+            "title": "Llm Base Url"
+          },
+          "llm_model_strong": {
+            "type": "string",
+            "title": "Llm Model Strong"
+          },
+          "llm_model_cheap": {
+            "type": "string",
+            "title": "Llm Model Cheap"
+          },
+          "llm_api_key_configured": {
+            "type": "boolean",
+            "title": "Llm Api Key Configured"
+          },
+          "zhihu_access_secret_configured": {
+            "type": "boolean",
+            "title": "Zhihu Access Secret Configured"
+          },
+          "zhihu_oauth_app_id": {
+            "type": "string",
+            "title": "Zhihu Oauth App Id"
+          },
+          "zhihu_oauth_app_key_configured": {
+            "type": "boolean",
+            "title": "Zhihu Oauth App Key Configured"
+          },
+          "dev_mode": {
+            "type": "boolean",
+            "title": "Dev Mode"
+          },
+          "tick_seconds_online": {
+            "type": "number",
+            "title": "Tick Seconds Online"
+          },
+          "tick_seconds_idle": {
+            "type": "number",
+            "title": "Tick Seconds Idle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "llm_base_url",
+          "llm_model_strong",
+          "llm_model_cheap",
+          "llm_api_key_configured",
+          "zhihu_access_secret_configured",
+          "zhihu_oauth_app_id",
+          "zhihu_oauth_app_key_configured",
+          "dev_mode",
+          "tick_seconds_online",
+          "tick_seconds_idle"
+        ],
+        "title": "ApiSettingsView"
       },
       "AuthorView": {
         "properties": {
@@ -2056,6 +3154,30 @@
           "location_id"
         ],
         "title": "CharacterSummaryView"
+      },
+      "ClockRequest": {
+        "properties": {
+          "day": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Day"
+          },
+          "minute_of_day": {
+            "type": "integer",
+            "multipleOf": 30.0,
+            "maximum": 1410.0,
+            "minimum": 360.0,
+            "title": "Minute Of Day"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "day",
+          "minute_of_day"
+        ],
+        "title": "ClockRequest"
       },
       "CommentView": {
         "properties": {
@@ -2818,6 +3940,175 @@
         "type": "object",
         "title": "MoodView"
       },
+      "NpcRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "avatar_key": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Avatar Key",
+            "default": "av_01"
+          },
+          "persona": {
+            "$ref": "#/components/schemas/PersonaFile"
+          },
+          "location_id": {
+            "type": "string",
+            "enum": [
+              "teaching_a",
+              "library",
+              "canteen",
+              "field",
+              "dorm",
+              "milktea",
+              "club_room",
+              "lakeside"
+            ],
+            "title": "Location Id",
+            "default": "dorm"
+          },
+          "activity": {
+            "type": "string",
+            "maxLength": 30,
+            "title": "Activity",
+            "default": "在校园里"
+          },
+          "energy": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Energy",
+            "default": 100
+          },
+          "mood_valence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Mood Valence",
+            "default": 0
+          },
+          "mood_arousal": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Mood Arousal",
+            "default": 0
+          },
+          "is_asleep": {
+            "type": "boolean",
+            "title": "Is Asleep",
+            "default": false
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "persona"
+        ],
+        "title": "NpcRequest"
+      },
+      "NpcView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "player",
+              "npc",
+              "system"
+            ],
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "avatar_key": {
+            "type": "string",
+            "title": "Avatar Key"
+          },
+          "location_id": {
+            "type": "string",
+            "enum": [
+              "teaching_a",
+              "library",
+              "canteen",
+              "field",
+              "dorm",
+              "milktea",
+              "club_room",
+              "lakeside"
+            ],
+            "title": "Location Id"
+          },
+          "activity": {
+            "type": "string",
+            "title": "Activity",
+            "default": ""
+          },
+          "mood": {
+            "$ref": "#/components/schemas/MoodView"
+          },
+          "is_asleep": {
+            "type": "boolean",
+            "title": "Is Asleep",
+            "default": false
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me",
+            "default": false
+          },
+          "dialogue_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dialogue Id"
+          },
+          "energy": {
+            "type": "integer",
+            "title": "Energy",
+            "default": 100
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "persona": {
+            "$ref": "#/components/schemas/PersonaFile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "avatar_key",
+          "location_id",
+          "is_active",
+          "persona"
+        ],
+        "title": "NpcView"
+      },
       "PersonaFile": {
         "properties": {
           "display_name": {
@@ -3258,6 +4549,100 @@
         ],
         "title": "ReportView"
       },
+      "SceneRequest": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 120,
+            "title": "Description",
+            "default": ""
+          },
+          "location_id": {
+            "type": "string",
+            "enum": [
+              "teaching_a",
+              "library",
+              "canteen",
+              "field",
+              "dorm",
+              "milktea",
+              "club_room",
+              "lakeside"
+            ],
+            "title": "Location Id"
+          },
+          "duration_ticks": {
+            "type": "integer",
+            "maximum": 96.0,
+            "minimum": 1.0,
+            "title": "Duration Ticks",
+            "default": 6
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Tags"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "location_id"
+        ],
+        "title": "SceneRequest"
+      },
+      "SimulationRequest": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "paused",
+              "idle",
+              "online",
+              "fast_forward"
+            ],
+            "title": "Mode"
+          },
+          "tick_seconds_online": {
+            "type": "number",
+            "maximum": 3600.0,
+            "minimum": 1.0,
+            "title": "Tick Seconds Online",
+            "default": 20
+          },
+          "tick_seconds_idle": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Tick Seconds Idle",
+            "default": 300
+          },
+          "ticks": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Ticks",
+            "default": 48
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "SimulationRequest"
+      },
       "Social": {
         "properties": {
           "initiative": {
@@ -3396,6 +4781,87 @@
           "text"
         ],
         "title": "Stance"
+      },
+      "UsageGroupView": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "calls": {
+            "type": "integer",
+            "title": "Calls"
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "title": "Completion Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "calls",
+          "prompt_tokens",
+          "completion_tokens"
+        ],
+        "title": "UsageGroupView"
+      },
+      "UsageItemView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "prompt_tokens": {
+            "type": "integer",
+            "title": "Prompt Tokens"
+          },
+          "completion_tokens": {
+            "type": "integer",
+            "title": "Completion Tokens"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "model",
+          "tier",
+          "template",
+          "prompt_tokens",
+          "completion_tokens",
+          "latency_ms",
+          "ok"
+        ],
+        "title": "UsageItemView"
       },
       "User": {
         "properties": {

@@ -30,6 +30,7 @@ export const SSE_EVENT_TYPES = [
   'briefing',
   'report_ready',
   'degraded',
+  'world_changed',
 ] as const;
 
 export type SseEventType = (typeof SSE_EVENT_TYPES)[number];

@@ -16,6 +16,7 @@ import { isKnownEvent } from './api/sse';
 import { landingPath, useSession } from './store/session';
 import { useWorld } from './store/world';
 import { useAvatar } from './store/avatar';
+import Admin from './pages/Admin';
 
 function FullScreen({ text }: { text: string }) {
   return (
@@ -104,6 +105,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginRedirect />} />
+      <Route path="/admin" element={<Admin />} />
       <Route
         element={
           <RequireAuth>

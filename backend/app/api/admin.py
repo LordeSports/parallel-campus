@@ -50,9 +50,6 @@ async def pause(_: AdminGuard) -> ModeResponse:
 
 @router.post("/resume", response_model=ModeResponse)
 async def resume(_: AdminGuard) -> ModeResponse:
-    # 清除 fast_forward 残留
-    world = await get_world()
-    world.state.remaining_ticks = 0
     mode = await ticker.resume()
     return ModeResponse(mode=mode)
 
@@ -75,9 +72,8 @@ async def status(_: AdminGuard, session: SessionDep) -> AdminStatusView:
     rows = (
         await session.exec(select(LlmUsage).where(col(LlmUsage.at) >= start))
     ).all()
-    ok_rows = [r for r in rows if r.ok]
-    gpt = sum(r.prompt_tokens for r in ok_rows)
-    gct = sum(r.completion_tokens for r in ok_rows)
+    gpt = sum(r.prompt_tokens for r in rows)
+    gct = sum(r.completion_tokens for r in rows)
 
     quotas = (await session.exec(select(QuotaLog).where(col(QuotaLog.date) == today))).all()
     qmap = {q.api: q.count for q in quotas}

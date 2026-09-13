@@ -13,7 +13,7 @@ SSE_EVENT_TYPES: tuple[str, ...] = (
     "hello", "heartbeat", "tick", "weather", "event_started", "event_ended",
     "character_moved", "character_activity", "dialogue_started", "dialogue_turn",
     "dialogue_ended", "post_created", "comment_created", "like_created", "dm_sent",
-    "whisper_response", "reflection", "briefing", "report_ready", "degraded",
+    "whisper_response", "reflection", "briefing", "report_ready", "degraded", "world_changed",
 )
 
 # 持久化到 events 表的事件类型（hello/heartbeat 不落库）

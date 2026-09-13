@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from ..db import get_session, get_write_session
 from ..errors import Forbidden, Unauthorized
 from ..models import Character, Persona, User
-from ..security import SESSION_COOKIE, check_admin_token, verify_session
+from ..security import ADMIN_COOKIE, SESSION_COOKIE, check_admin_token, verify_admin_session, verify_session
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 WriteSessionDep = Annotated[AsyncSession, Depends(get_write_session)]
@@ -60,9 +60,33 @@ async def current_persona(user: Annotated[User, Depends(current_user)], session:
     return persona
 
 
-async def require_admin(x_admin_token: Annotated[str | None, Header()] = None) -> None:
-    if not check_admin_token(x_admin_token):
-        raise Forbidden("admin token 不正确")
+def check_admin_origin(request: Request) -> None:
+    """Cookie 写请求只允许浏览器同源操作；header token 客户端不受此限制。"""
+    from urllib.parse import urlsplit
+
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        raise Forbidden("管理员操作必须来自同源页面")
+    origin = request.headers.get("origin")
+    if origin:
+        from ..config import settings
+
+        allowed = {str(request.base_url).rstrip("/"), settings.public_base_url.rstrip("/")}
+        parsed = urlsplit(origin)
+        if parsed.scheme not in {"http", "https"} or origin.rstrip("/") not in allowed:
+            raise Forbidden("管理员操作必须来自同源页面")
+
+
+async def require_admin(
+    request: Request,
+    x_admin_token: Annotated[str | None, Header()] = None,
+) -> None:
+    if check_admin_token(x_admin_token):
+        return
+    if not verify_admin_session(request.cookies.get(ADMIN_COOKIE)):
+        raise Unauthorized("请先登录管理员账户")
+    check_admin_origin(request)
 
 
 CurrentUser = Annotated[User, Depends(current_user)]

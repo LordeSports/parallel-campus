@@ -145,6 +145,10 @@ export const useWorld = create<WorldStore>((set, get) => ({
     const tick = Number(d.tick ?? get().lastTick);
 
     switch (evt.type) {
+      case 'world_changed': {
+        void get().bootstrap();
+        return;
+      }
       case 'hello': {
         set({ lastTick: Math.max(get().lastTick, Number(d.tick ?? 0)) });
         return;

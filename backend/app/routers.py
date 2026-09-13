@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, FastAPI
 
-from .api import admin, auth, avatar, health, persona, stream, wall, world
+from .api import admin, admin_console, auth, avatar, health, persona, stream, wall, world
 
 
 def register_routers(app: FastAPI) -> None:
@@ -18,6 +18,7 @@ def register_routers(app: FastAPI) -> None:
     api.include_router(wall.router)
     api.include_router(avatar.router)
     api.include_router(admin.router)
+    api.include_router(admin_console.router)
     api.include_router(stream.router)
     api.include_router(health.router)
     app.include_router(api)

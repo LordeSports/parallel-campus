@@ -39,6 +39,10 @@ def _setup_logging() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _setup_logging()
+    from .admin_settings import load_runtime_settings, reload_clients
+
+    load_runtime_settings()
+    await reload_clients()
     settings.validate_runtime()
     log.info('{"event":"startup","env":"%s","dev_mode":%s}', settings.app_env, settings.dev_mode)
 

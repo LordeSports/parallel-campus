@@ -7,6 +7,13 @@ import { http, qs } from './client';
 import type {
   CharacterDetailView,
   CharacterSummaryView,
+  ActiveEventView,
+  AdminOverviewView,
+  AdminSessionView,
+  AdminWeatherRequest,
+  ApiSettingsRequest,
+  ApiSettingsView,
+  ClockRequest,
   CommentView,
   DiaryView,
   EventView,
@@ -16,6 +23,11 @@ import type {
   PostDetailView,
   PostView,
   ReportView,
+  ModeResponse,
+  NpcRequest,
+  NpcView,
+  SceneRequest,
+  SimulationRequest,
   UserView,
   WorldStateView,
 } from './types';
@@ -112,4 +124,23 @@ export interface HealthView {
 
 export const healthApi = {
   check: () => http.get<HealthView>('/api/health'),
+};
+
+export const adminApi = {
+  session: () => http.get<AdminSessionView>('/api/admin/session'),
+  login: (username: string, password: string) => http.post<AdminSessionView>('/api/admin/login', { username, password }),
+  logout: () => http.post<void>('/api/admin/logout'),
+  overview: () => http.get<AdminOverviewView>('/api/admin/overview'),
+  simulation: (payload: SimulationRequest) => http.put<ModeResponse>('/api/admin/simulation', payload),
+  clock: (payload: ClockRequest) => http.put<WorldStateView>('/api/admin/clock', payload),
+  weather: (payload: AdminWeatherRequest) => http.put<WorldStateView>('/api/admin/weather', payload),
+  locations: () => http.get<LocationView[]>('/api/admin/locations'),
+  npcs: () => http.get<NpcView[]>('/api/admin/npcs'),
+  createNpc: (payload: NpcRequest) => http.post<NpcView>('/api/admin/npcs', payload),
+  updateNpc: (id: string, payload: NpcRequest) => http.put<NpcView>(`/api/admin/npcs/${id}`, payload),
+  scenes: () => http.get<ActiveEventView[]>('/api/admin/scenes'),
+  createScene: (payload: SceneRequest) => http.post<ActiveEventView>('/api/admin/scenes', payload),
+  endScene: (id: string) => http.post<ActiveEventView>(`/api/admin/scenes/${id}/end`),
+  settings: () => http.get<ApiSettingsView>('/api/admin/settings'),
+  saveSettings: (payload: ApiSettingsRequest) => http.put<ApiSettingsView>('/api/admin/settings', payload),
 };

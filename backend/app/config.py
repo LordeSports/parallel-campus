@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     session_secret: str = "dev-session-secret-not-for-prod"
     token_enc_key: str = ""
     admin_token: str = "dev-admin-token"
+    admin_username: str = "admin"
+    admin_password: str = ""
+    admin_settings_file: str = ""
     judge_accounts: str = "judge1:changeme1,judge2:changeme2"
 
     # ── 存储 ──
