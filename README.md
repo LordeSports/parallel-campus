@@ -226,7 +226,7 @@ curl -N https://<域名>/api/stream -H "Cookie: pc_session=…"   # 15s 内应�
 ## 八、约束与已知边界
 
 - **`--workers 1` 是硬约束**：单 Ticker + SQLite 单写者。多 worker 会得到两个互相覆盖的世界。
-- SQLite 用 WAL + `NullPool` + `BEGIN IMMEDIATE`。不要在 session 上手动 `BEGIN IMMEDIATE`——会让 `commit()` 退化成 rollback。
+- SQLite 用 WAL + `NullPool` + 读写事务分离；写事务使用 `BEGIN IMMEDIATE`。不要在 session 上手动 `BEGIN IMMEDIATE`——会让 `commit()` 退化成 rollback。
 - 一个页面 = 一个 SSE 连接 = 一个观众；观众数直接影响 Ticker 速率。
 - LLM 预算 ≤ 300 次/虚拟日；`fail_streak` 超阈值触发 `degraded`（角色退回日程行动）。
 - 耳语每天 3 次，≤80 字；分身可以拒绝。

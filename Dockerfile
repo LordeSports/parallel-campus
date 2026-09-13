@@ -29,7 +29,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl gosu \
  && rm -rf /var/lib/apt/lists/*
 
 COPY backend/pyproject.toml ./pyproject.toml
@@ -39,17 +39,20 @@ RUN pip install -e .
 
 # 前端产物挂到 /app/static（main.py 会从这里托管）
 COPY --from=frontend /frontend/dist ./static
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN useradd --create-home --uid 10001 app \
  && mkdir -p /data \
- && chown -R app:app /app /data
-USER app
+ && chown -R app:app /app /data \
+ && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 VOLUME ["/data"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://localhost:8000/api/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 CMD ["uvicorn", "app.main:app", \
      "--host", "0.0.0.0", "--port", "8000", \
