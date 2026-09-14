@@ -109,6 +109,30 @@ class Character(SQLModel, table=True):
 Index("ix_characters_active_kind", Character.is_active, Character.kind)
 
 
+# ─────────────────────────── 3.3a CampusLocation（管理员布局）───────────────────────────
+
+
+class CampusLocation(SQLModel, table=True):
+    """管理员可编辑的校园地点覆盖层；无记录时回退到 seeds/locations.json。"""
+
+    __tablename__ = "campus_locations"
+
+    id: str = Field(primary_key=True, max_length=32)
+    name: str = Field(max_length=20)
+    emoji: str = Field(default="📍", max_length=8)
+    x: int = Field(default=40, ge=0, le=1000)
+    y: int = Field(default=40, ge=0, le=600)
+    w: int = Field(default=180, ge=80, le=500)
+    h: int = Field(default=120, ge=60, le=300)
+    outdoor: bool = Field(default=False)
+    description: str = Field(default="", max_length=60)
+    affordances: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    ambience: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    capacity: int = Field(default=20, ge=1, le=200)
+    is_active: bool = Field(default=True)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
 # ─────────────────────────── 3.4 Relationship ───────────────────────────
 
 
@@ -384,10 +408,62 @@ class HumanRateLog(SQLModel, table=True):
     day: int = Field(default=1, index=True)
 
 
+# ─────────────────────────── 3.15 可编辑校园地图 ───────────────────────────
+#
+# 与 `CampusLocation` 的分工：
+# - `CampusLocation` 是**地点语义**（角色归属、容量、氛围），角色移动仍以它为准；
+# - `CampusMapObject` 是**视觉层**（手绘等距地图上的建筑/摆件/地块），
+#   `building` 类对象通过 `location_id` 回指地点，用于把角色画在对应建筑上。
+# 两者解耦：管理员重画地图不会影响模拟逻辑。
+
+
+class CampusMap(SQLModel, table=True):
+    """地图元信息（单行，id=1）。`version` 用于玩家端失效判断与 SSE 同步。"""
+
+    __tablename__ = "campus_map"
+
+    id: int = Field(default=1, primary_key=True)
+    version: int = Field(default=1)
+    # 网格尺寸（tile 数）；等距投影的绘制范围
+    cols: int = Field(default=36, ge=8, le=128)
+    rows: int = Field(default=26, ge=8, le=128)
+    # 地图主题名（展示用）
+    title: str = Field(default="平行校园", max_length=24)
+    updated_at: datetime = Field(default_factory=now_utc)
+    updated_by: str | None = Field(default=None, max_length=32)
+
+
+class CampusMapObject(SQLModel, table=True):
+    """地图上的一个可编辑对象：地面块 / 建筑 / 摆件。
+
+    坐标与尺寸都用 **tile** 为单位（浮点，支持半格吸附），渲染时再投影到屏幕。
+    """
+
+    __tablename__ = "campus_map_objects"
+
+    id: str = Field(default_factory=lambda: new_id("mo_"), primary_key=True)
+    kind: str = Field(max_length=12, index=True)  # ground | building | prop
+    variant: str = Field(max_length=24)           # grass/dirt/water | 建筑样式 | tree/rock/bench
+    tx: float = Field(default=0.0)
+    ty: float = Field(default=0.0)
+    tw: float = Field(default=1.0, ge=0.25, le=128.0)
+    th: float = Field(default=1.0, ge=0.25, le=128.0)
+    # 立面高度（tile）。地面为 0；建筑 2~8
+    height: float = Field(default=0.0, ge=0.0, le=16.0)
+    # 绘制层级：地面 0、摆件 10、建筑 20（同层再按深度排序）
+    layer: int = Field(default=0)
+    name: str = Field(default="", max_length=24)
+    location_id: str | None = Field(default=None, max_length=32, index=True)
+    # 渲染参数（色调偏移、纹理种子、旋转等），避免为每个变体加列
+    props: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    sort_order: int = Field(default=0)
+
+
 __all__ = [
-    "User", "Persona", "Character", "Relationship", "Memory", "Post", "Comment", "Like",
+    "User", "Persona", "Character", "CampusLocation", "Relationship", "Memory", "Post", "Comment", "Like",
     "Message", "Dialogue", "WorldEvent", "Event", "Whisper", "Report", "WorldState",
     "ZhihuCache", "QuotaLog", "LlmUsage", "HumanRateLog",
+    "CampusMap", "CampusMapObject",
     "new_id", "now_utc",
     "String",
 ]

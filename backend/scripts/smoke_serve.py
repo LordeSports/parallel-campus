@@ -20,12 +20,26 @@ PORT = int(os.environ.get("SMOKE_PORT", "8123"))
 BASE = f"http://127.0.0.1:{PORT}"
 
 
-def get(path: str, cookie: str | None = None) -> tuple[int, str]:
+def get(path: str, cookie: str | None = None, extra: dict[str, str] | None = None) -> tuple[int, str]:
     req = urllib.request.Request(BASE + path)
     if cookie:
         req.add_header("Cookie", cookie)
+    for k, v in (extra or {}).items():
+        req.add_header(k, v)
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+
+
+def put(path: str, body: dict | None = None, extra: dict[str, str] | None = None) -> tuple[int, str]:
+    data = json.dumps(body or {}).encode()
+    headers = {"Content-Type": "application/json"}
+    headers.update(extra or {})
+    req = urllib.request.Request(BASE + path, data=data, headers=headers, method="PUT")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
             return r.status, r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         return e.code, e.read().decode("utf-8", "replace")
@@ -45,11 +59,14 @@ def post(path: str, body: dict | None = None) -> tuple[int, str, str | None]:
 
 def main() -> int:
     env = dict(os.environ)
+    # 每次用全新库：地图保存测试会改数据，避免污染上一次的冒烟库。
+    # （文件名带 pid，且 data/ 已在 .gitignore 里）
+    db_path = BACKEND / "data" / f"smoke_{os.getpid()}.db"
     env.update(
         {
             "APP_ENV": "dev",
             "DEV_MODE": "true",
-            "DATABASE_URL": f"sqlite+aiosqlite:///{BACKEND / 'data' / 'smoke.db'}",
+            "DATABASE_URL": f"sqlite+aiosqlite:///{db_path}",
             "SESSION_SECRET": "smoke-secret",
             "ADMIN_TOKEN": "smoke-admin",
             "LOG_LEVEL": "warning",
@@ -139,6 +156,67 @@ def main() -> int:
                 extra = "  （新用户尚未生成人格，符合 spec）" if code == 404 else ""
             want_label = " 或 ".join(str(w) for w in want_tuple)
             print(f"  {'✓' if ok else '✗'} {path} → {code}（期望 {want_label}）{extra}")
+
+        # ── 校园地图（读 / 管理员读写 + 版本递增）──
+        print("\n-- 校园地图 --")
+        admin = {"X-Admin-Token": env["ADMIN_TOKEN"]}
+        code, body = get("/api/world/map", cookie)
+        v1, n1 = None, 0
+        if code == 200:
+            try:
+                d = json.loads(body)
+                v1, n1 = d.get("version"), len(d.get("objects") or [])
+            except Exception:
+                pass
+            print(f"  ✓ GET /api/world/map → 200  version={v1} objects={n1}")
+            if not (isinstance(n1, int) and n1 > 0):
+                failed += 1
+        else:
+            failed += 1
+            print(f"  ✗ GET /api/world/map → {code} {body[:120]}")
+
+        code, body = get("/api/admin/map", None, admin)
+        if code == 200:
+            print("  ✓ GET /api/admin/map → 200（管理员读）")
+        else:
+            failed += 1
+            print(f"  ✗ GET /api/admin/map → {code} {body[:120]}")
+
+        # 保存一张最小合法地图（草地 + 一栋楼），再读回确认版本 +1
+        save_body = {
+            "title": "冒烟校园",
+            "objects": [
+                {"kind": "ground", "variant": "grass", "tx": 0, "ty": 0, "tw": 40, "th": 30, "layer": 0},
+                {"kind": "building", "variant": "tower", "tx": 8, "ty": 8, "tw": 6, "th": 5,
+                 "height": 5, "layer": 20, "name": "测试塔", "location_id": "library"},
+            ],
+        }
+        code, body = put("/api/admin/map", save_body, admin)
+        if code == 200:
+            try:
+                d = json.loads(body)
+                v2, n2 = d.get("version"), len(d.get("objects") or [])
+            except Exception:
+                v2, n2 = None, 0
+            ok = isinstance(v2, int) and isinstance(v1, int) and v2 == v1 + 1 and n2 == 2
+            failed += 0 if ok else 1
+            print(f"  {'✓' if ok else '✗'} PUT /api/admin/map → 200  version {v1}→{v2} objects={n2}（应 2）")
+        else:
+            failed += 1
+            print(f"  ✗ PUT /api/admin/map → {code} {body[:160]}")
+
+        # 非法变体必须被拒（schema 白名单）
+        bad = {"objects": [{"kind": "building", "variant": "nope", "tx": 1, "ty": 1}]}
+        code, _ = put("/api/admin/map", bad, admin)
+        ok = code == 400
+        failed += 0 if ok else 1
+        print(f"  {'✓' if ok else '✗'} PUT /api/admin/map（非法变体）→ {code}（期望 400）")
+
+        # 无管理员凭据必须 401
+        code, _ = put("/api/admin/map", save_body)
+        ok = code == 401
+        failed += 0 if ok else 1
+        print(f"  {'✓' if ok else '✗'} PUT /api/admin/map（无凭据）→ {code}（期望 401）")
 
         return 0 if failed == 0 else 1
     finally:

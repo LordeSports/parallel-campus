@@ -444,6 +444,28 @@
         }
       }
     },
+    "/api/world/map": {
+      "get": {
+        "tags": [
+          "world"
+        ],
+        "summary": "World Map",
+        "description": "可编辑校园地图（等距手绘）。管理员的改动通过 `map_updated` 事件通知。",
+        "operationId": "world_map_api_world_map_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampusMapView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/world/characters": {
       "get": {
         "tags": [
@@ -2177,6 +2199,114 @@
         }
       }
     },
+    "/api/admin/map": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Campus Map",
+        "description": "读取可编辑校园地图（与玩家端同一份数据）。",
+        "operationId": "get_campus_map_api_admin_map_get",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampusMapView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Save Campus Map",
+        "description": "整图保存。保存后广播 `map_updated`，在线玩家端自动重新拉取。",
+        "operationId": "save_campus_map_api_admin_map_put",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapSaveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampusMapView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/settings": {
       "get": {
         "tags": [
@@ -2349,17 +2479,7 @@
           "location_id": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": [
-                  "teaching_a",
-                  "library",
-                  "canteen",
-                  "field",
-                  "dorm",
-                  "milktea",
-                  "club_room",
-                  "lakeside"
-                ]
+                "type": "string"
               },
               {
                 "type": "null"
@@ -2798,16 +2918,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "activity": {
@@ -2959,6 +3069,65 @@
         "type": "object",
         "title": "CampusIdentity"
       },
+      "CampusMapView": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "cols": {
+            "type": "integer",
+            "title": "Cols"
+          },
+          "rows": {
+            "type": "integer",
+            "title": "Rows"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": "平行校园"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/MapObjectView"
+            },
+            "type": "array",
+            "title": "Objects"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "cols",
+          "rows"
+        ],
+        "title": "CampusMapView",
+        "description": "整图（读）。玩家端只在 `version` 变化时重建。"
+      },
       "CharacterDetailView": {
         "properties": {
           "id": {
@@ -2984,16 +3153,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "activity": {
@@ -3098,16 +3257,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "activity": {
@@ -3374,16 +3523,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "a_id": {
@@ -3775,16 +3914,6 @@
         "properties": {
           "id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Id"
           },
           "name": {
@@ -3859,6 +3988,218 @@
           "capacity"
         ],
         "title": "LocationView"
+      },
+      "MapObjectInput": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ground",
+              "building",
+              "prop"
+            ],
+            "title": "Kind"
+          },
+          "variant": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Variant"
+          },
+          "tx": {
+            "type": "number",
+            "maximum": 128.0,
+            "minimum": -4.0,
+            "title": "Tx"
+          },
+          "ty": {
+            "type": "number",
+            "maximum": 128.0,
+            "minimum": -4.0,
+            "title": "Ty"
+          },
+          "tw": {
+            "type": "number",
+            "maximum": 64.0,
+            "minimum": 0.25,
+            "title": "Tw",
+            "default": 1
+          },
+          "th": {
+            "type": "number",
+            "maximum": 64.0,
+            "minimum": 0.25,
+            "title": "Th",
+            "default": 1
+          },
+          "height": {
+            "type": "number",
+            "maximum": 16.0,
+            "minimum": 0.0,
+            "title": "Height",
+            "default": 0
+          },
+          "layer": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": -10.0,
+            "title": "Layer",
+            "default": 0
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 24,
+            "title": "Name",
+            "default": ""
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "props": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Props"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "variant",
+          "tx",
+          "ty"
+        ],
+        "title": "MapObjectInput",
+        "description": "地图对象（写）。`id` 可省略 → 服务端分配。"
+      },
+      "MapObjectView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ground",
+              "building",
+              "prop"
+            ],
+            "title": "Kind"
+          },
+          "variant": {
+            "type": "string",
+            "title": "Variant"
+          },
+          "tx": {
+            "type": "number",
+            "title": "Tx"
+          },
+          "ty": {
+            "type": "number",
+            "title": "Ty"
+          },
+          "tw": {
+            "type": "number",
+            "title": "Tw"
+          },
+          "th": {
+            "type": "number",
+            "title": "Th"
+          },
+          "height": {
+            "type": "number",
+            "title": "Height",
+            "default": 0.0
+          },
+          "layer": {
+            "type": "integer",
+            "title": "Layer",
+            "default": 0
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "props": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Props"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "variant",
+          "tx",
+          "ty",
+          "tw",
+          "th"
+        ],
+        "title": "MapObjectView",
+        "description": "地图对象（读）。坐标单位为 tile。"
+      },
+      "MapSaveRequest": {
+        "properties": {
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/MapObjectInput"
+            },
+            "type": "array",
+            "maxItems": 1200,
+            "title": "Objects"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MapSaveRequest",
+        "description": "整图保存请求。"
       },
       "MemoryItemView": {
         "properties": {
@@ -3959,16 +4300,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id",
             "default": "dorm"
           },
@@ -4043,16 +4374,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "activity": {
@@ -4565,16 +4886,6 @@
           },
           "location_id": {
             "type": "string",
-            "enum": [
-              "teaching_a",
-              "library",
-              "canteen",
-              "field",
-              "dorm",
-              "milktea",
-              "club_room",
-              "lakeside"
-            ],
             "title": "Location Id"
           },
           "duration_ticks": {

@@ -23,6 +23,10 @@ async def bootstrap_world() -> None:
     world = await get_world()
     await _ensure_judges(world)
     await world.reload_characters()
+    # 可编辑校园地图：首次启动写入默认布局（已有则跳过）
+    from . import campus_map
+
+    await campus_map.ensure_default_map()
     log.info("世界预置完成：%d 个角色", len(world.characters))
 
 

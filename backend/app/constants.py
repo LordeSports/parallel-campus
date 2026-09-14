@@ -6,9 +6,8 @@ from typing import Literal
 
 # ── 枚举 ──
 CharacterKind = Literal["player", "npc", "system"]
-LocationId = Literal[
-    "teaching_a", "library", "canteen", "field", "dorm", "milktea", "club_room", "lakeside"
-]
+# 种子地点使用固定 slug；管理员可创建自定义地点，因此线上只约束为非空字符串。
+LocationId = str
 Board = Literal["wall", "tree_hole", "notice"]
 ActionType = Literal[
     "move", "talk", "post", "comment", "like", "dm", "attend", "do", "search_zhihu", "idle"
@@ -26,6 +25,8 @@ SseEventType = Literal[
     "character_moved", "character_activity", "dialogue_started", "dialogue_turn",
     "dialogue_ended", "post_created", "comment_created", "like_created", "dm_sent",
     "whisper_response", "reflection", "briefing", "report_ready", "degraded", "world_changed",
+    # 需求演进：管理员保存校园地图后广播，玩家端据此重新拉取地图
+    "map_updated",
 ]
 
 # ── ID 前缀 ──

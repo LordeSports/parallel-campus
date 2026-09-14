@@ -19,6 +19,7 @@ _pt*/
 _pc*/
 ptmp*/
 .pcache/
+_browser_*/
 
 # ── 数据（含用户内容，绝不入库）──
 data/

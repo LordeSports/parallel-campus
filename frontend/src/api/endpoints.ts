@@ -13,11 +13,13 @@ import type {
   AdminWeatherRequest,
   ApiSettingsRequest,
   ApiSettingsView,
+  CampusMapView,
   ClockRequest,
   CommentView,
   DiaryView,
   EventView,
   LocationView,
+  MapSaveRequest,
   PersonaFile,
   PersonaResponse,
   PostDetailView,
@@ -80,6 +82,8 @@ export const personaApi = {
 export const worldApi = {
   state: () => http.get<WorldStateView>('/api/world/state'),
   locations: () => http.get<LocationView[]>('/api/world/locations'),
+  /** 可编辑校园地图（等距手绘） */
+  map: () => http.get<CampusMapView>('/api/world/map'),
   characters: () => http.get<CharacterSummaryView[]>('/api/world/characters'),
   character: (id: string) =>
     http.get<CharacterDetailView>(`/api/world/characters/${encodeURIComponent(id)}`),
@@ -141,6 +145,9 @@ export const adminApi = {
   scenes: () => http.get<ActiveEventView[]>('/api/admin/scenes'),
   createScene: (payload: SceneRequest) => http.post<ActiveEventView>('/api/admin/scenes', payload),
   endScene: (id: string) => http.post<ActiveEventView>(`/api/admin/scenes/${id}/end`),
+  /** 可编辑校园地图 */
+  map: () => http.get<CampusMapView>('/api/admin/map'),
+  saveMap: (payload: MapSaveRequest) => http.put<CampusMapView>('/api/admin/map', payload),
   settings: () => http.get<ApiSettingsView>('/api/admin/settings'),
   saveSettings: (payload: ApiSettingsRequest) => http.put<ApiSettingsView>('/api/admin/settings', payload),
 };

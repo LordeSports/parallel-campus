@@ -11,6 +11,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from ..admin_settings import api_changes, public_settings, reload_clients, save_runtime_settings
+from .. import campus_map
 from ..config import settings
 from ..db import session_scope, write_lock, write_session
 from ..errors import Forbidden, NotFound, RateLimited, Unauthorized, ValidationError, Conflict
@@ -21,6 +22,7 @@ from ..schemas.admin import (
     SceneRequest, SimulationRequest, UsageGroupView, UsageItemView,
 )
 from ..schemas.events import make_event
+from ..schemas.map import CampusMapView, MapSaveRequest
 from ..schemas.views import ActiveEventView, LocationView, ModeResponse, WorldStateView
 from ..security import ADMIN_COOKIE, ADMIN_SESSION_MAX_AGE, sign_admin_session, verify_admin_session
 from ..seeds import avatars, default_schedule
@@ -247,6 +249,10 @@ async def scenes(_: AdminGuard, session: SessionDep) -> list[ActiveEventView]:
 async def create_scene(payload: SceneRequest, _: AdminGuard) -> ActiveEventView:
     async with write_lock:
         world = await get_world()
+        # `LocationId` 刻意放宽为 str（允许管理员自定义地点），所以这里必须
+        # 显式校验地点真实存在——否则活动会挂在空气上、角色永远触发不到。
+        if payload.location_id not in world.locations:
+            raise ValidationError(f"地点不存在：{payload.location_id}")
         row = WorldEvent(id=new_id("e_"), kind="adhoc", title=payload.title, description=payload.description,
                          location_id=payload.location_id, start_tick=world.tick,
                          end_tick=world.tick + payload.duration_ticks, tags=payload.tags, status="active")
@@ -273,10 +279,36 @@ async def end_scene(scene_id: str, _: AdminGuard) -> ActiveEventView:
         return active_event_view(row)
 
 
+@router.get("/map", response_model=CampusMapView)
+async def get_campus_map(_: AdminGuard, session: SessionDep) -> CampusMapView:
+    """读取可编辑校园地图（与玩家端同一份数据）。"""
+    return CampusMapView(**await campus_map.load_map(session))
+
+
+@router.put("/map", response_model=CampusMapView)
+async def save_campus_map(
+    payload: MapSaveRequest, request: Request, _: AdminGuard
+) -> CampusMapView:
+    """整图保存。保存后广播 `map_updated`，在线玩家端自动重新拉取。"""
+    updated_by = verify_admin_session(request.cookies.get(ADMIN_COOKIE)) or "admin-token"
+    async with write_lock:
+        version = await campus_map.save_map(
+            [obj.model_dump() for obj in payload.objects], updated_by, payload.title
+        )
+        world = await get_world()
+        world.emit(
+            make_event(
+                "map_updated", world.tick, world.day,
+                {"version": version, "objects": len(payload.objects)},
+            )
+        )
+    async with session_scope() as session:
+        return CampusMapView(**await campus_map.load_map(session))
+
+
 @router.get("/settings", response_model=ApiSettingsView)
 async def get_api_settings(_: AdminGuard) -> ApiSettingsView:
     return public_settings()
-
 
 @router.put("/settings", response_model=ApiSettingsView)
 async def set_api_settings(payload: ApiSettingsRequest, _: AdminGuard) -> ApiSettingsView:

@@ -92,6 +92,34 @@ class SceneRequest(AdminInput):
         return list(dict.fromkeys(tag.strip() for tag in value if tag.strip()))
 
 
+class CampusLocationRequest(AdminInput):
+    id: str = Field(min_length=2, max_length=32, pattern=r"^[a-z][a-z0-9_-]*$")
+    name: str = Field(min_length=1, max_length=20)
+    emoji: str = Field(default="📍", min_length=1, max_length=8)
+    x: int = Field(ge=0, le=920)
+    y: int = Field(ge=0, le=540)
+    w: int = Field(ge=80, le=500)
+    h: int = Field(ge=60, le=300)
+    outdoor: bool = False
+    description: str = Field(default="", max_length=60)
+    affordances: list[str] = Field(default_factory=list, max_length=8)
+    ambience: dict[str, str] = Field(default_factory=dict)
+    capacity: int = Field(default=20, ge=1, le=200)
+    is_active: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def location_name_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("地点名称不能为空")
+        return value.strip()
+
+    @field_validator("affordances")
+    @classmethod
+    def normalize_affordances(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(item.strip()[:12] for item in value if item.strip()))[:8]
+
+
 class ApiSettingsRequest(AdminInput):
     llm_base_url: str = Field(max_length=300)
     llm_model_strong: str = Field(min_length=1, max_length=80)

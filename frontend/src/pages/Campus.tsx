@@ -1,10 +1,12 @@
-/** 校园页（spec/07 §3.3）：地图 + 动态流。 */
+/** 校园页（spec/07 §3.3）：校园地图 / 校园活动 + 动态流。 */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import CharacterDrawer from '../components/CharacterDrawer';
+import IsoMap from '../components/IsoMap';
 import LiveFeed from '../components/LiveFeed';
 import MapCanvas from '../components/MapCanvas';
+import { useMap } from '../store/map';
 import { useWorld } from '../store/world';
 import { WEATHER_EMOJI } from '../store/world';
 
@@ -48,7 +50,7 @@ function CampusHeader() {
           <p className="mt-1 max-w-xl text-sm text-white/75">每个 Agent 都有自己的日程、关系和临时念头。点开地图上的角色，看看他们此刻正在靠近谁。</p></div>
         <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-right backdrop-blur"><p className="text-xs text-white/60">{state?.time_label ?? '校园载入中'}</p><p className="mt-1 text-sm font-medium">{state ? `${WEATHER_EMOJI[state.weather.kind ?? 'sunny'] ?? '🌤'} ${state.weather.temp_c}° · ${awake} 人醒着` : '—'}</p></div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="hero-pill">🧠 {Object.keys(characters).length} 个 Agent</span><span className="hero-pill">📡 {state?.observers ?? 0} 位观察者</span><span className="hero-pill">✦ {activeEvents.length} 个进行中场景</span><span className="hero-pill">↗ {feed.length} 条现场动态</span></div>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs"><span className="hero-pill">🧠 {Object.keys(characters).length} 个 Agent</span><span className="hero-pill">📡 {state?.observers ?? 0} 位观察者</span><span className="hero-pill">✦ {activeEvents.length} 个校园活动</span><span className="hero-pill">↗ {feed.length} 条现场动态</span></div>
     </div>
     <div className="card flex min-w-[250px] items-center justify-between gap-4 px-4 py-3"><div><p className="text-xs text-muted">世界脉搏</p><p className="mt-1 text-sm font-medium text-ink">{state?.speed_mode === 'fast_forward' ? '正在快进' : state?.speed_mode === 'paused' ? '已暂停' : '自然运行中'}</p></div><div className="pulse-orb" aria-hidden="true"><span /></div></div>
   </div>;
@@ -57,14 +59,54 @@ function CampusHeader() {
 function SceneRail() {
   const activeEvents = useWorld((s) => s.state?.active_events ?? []);
   const locations = useWorld((s) => s.locations);
-  if (activeEvents.length === 0) return <div className="mx-3 mt-3 rounded-2xl border border-dashed border-black/10 bg-white/35 px-4 py-3 text-xs text-muted">管理员还没有布置临时场景。校园会按照日程继续运行。</div>;
+  if (activeEvents.length === 0) return <div className="mx-3 mt-3 rounded-2xl border border-dashed border-black/10 bg-white/35 px-4 py-3 text-xs text-muted">管理员还没有布置校园活动。校园会按照日程继续运行。</div>;
   return <div className="scroll-thin mx-3 mt-3 flex gap-3 overflow-x-auto pb-1">{activeEvents.map((event) => <article key={event.id} className="scene-card min-w-[240px] shrink-0"><div className="flex items-start gap-3"><span className="scene-icon">✦</span><div className="min-w-0"><h2 className="truncate text-sm font-semibold text-ink">{event.title}</h2><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">{event.description || '校园里出现了一阵新的动静。'}</p><div className="mt-2 flex items-center gap-2 text-[10px] text-brand-600"><span>📍 {locations.find((location) => location.id === event.location_id)?.name ?? event.location_id ?? '校园'}</span><span>#{event.start_tick} → #{event.end_tick}</span></div></div></div></article>)}</div>;
+}
+
+/** 校园地图 / 校园活动 两个视图的切换。 */
+function ViewSwitch({ value, onChange, mapTitle }: { value: 'map' | 'activity'; onChange: (v: 'map' | 'activity') => void; mapTitle: string }) {
+  const items = [
+    { key: 'map' as const, label: `🗺 ${mapTitle}` },
+    { key: 'activity' as const, label: '📍 校园活动' },
+  ];
+  return (
+    <div className="mx-3 mt-3 flex items-center gap-1 rounded-2xl bg-black/5 p-1" role="tablist">
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          role="tab"
+          aria-selected={value === item.key}
+          onClick={() => onChange(item.key)}
+          className={`rounded-xl px-3.5 py-2 text-xs transition-colors ${
+            value === item.key ? 'bg-white font-medium text-ink shadow-sm' : 'text-muted hover:text-ink'
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+      <span className="ml-auto pr-2 text-[11px] text-muted">
+        {value === 'map' ? '管理员可编辑这张地图，改动会实时同步' : '角色此刻在校园里的位置与动静'}
+      </span>
+    </div>
+  );
 }
 
 export default function Campus() {
   const [picked, setPicked] = useState<string | null>(null);
+  const [view, setView] = useState<'map' | 'activity'>('map');
   const loading = useWorld((s) => s.loading);
   const error = useWorld((s) => s.error);
+  const characters = useWorld((s) => s.characters);
+  const map = useMap((s) => s.map);
+  const mapLoading = useMap((s) => s.loading);
+  const fetchMap = useMap((s) => s.fetch);
+
+  useEffect(() => {
+    if (!map) void fetchMap();
+  }, [map, fetchMap]);
+
+  const charList = Object.values(characters);
 
   return (
     <div className="flex h-[calc(100vh-7.25rem)] flex-col">
@@ -77,14 +119,20 @@ export default function Campus() {
         </div>
       )}
 
-      <SceneRail />
+      <ViewSwitch value={view} onChange={setView} mapTitle={map?.title ?? '校园地图'} />
+
+      {view === 'activity' && <SceneRail />}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* 地图 */}
+        {/* 地图 / 活动 */}
         <div className="relative min-h-0 flex-1 p-3">
           <div className="card relative h-full overflow-hidden">
-            <MapCanvas onPickCharacter={setPicked} />
-            {loading && (
+            {view === 'map' ? (
+              <IsoMap map={map} characters={charList} onPickCharacter={setPicked} />
+            ) : (
+              <MapCanvas onPickCharacter={setPicked} />
+            )}
+            {(loading || (view === 'map' && mapLoading && !map)) && (
               <div className="absolute left-3 top-3 chip bg-white/90 text-muted">加载中…</div>
             )}
             <CharacterDrawer characterId={picked} onClose={() => setPicked(null)} />

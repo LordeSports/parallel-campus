@@ -31,6 +31,8 @@ export const SSE_EVENT_TYPES = [
   'report_ready',
   'degraded',
   'world_changed',
+  // 需求演进：管理员保存校园地图后广播
+  'map_updated',
 ] as const;
 
 export type SseEventType = (typeof SSE_EVENT_TYPES)[number];

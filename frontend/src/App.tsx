@@ -16,6 +16,7 @@ import { isKnownEvent } from './api/sse';
 import { landingPath, useSession } from './store/session';
 import { useWorld } from './store/world';
 import { useAvatar } from './store/avatar';
+import { useMap } from './store/map';
 import Admin from './pages/Admin';
 
 function FullScreen({ text }: { text: string }) {
@@ -58,6 +59,7 @@ export default function App() {
   const applyWorldEvent = useWorld((s) => s.applyEvent);
   const applyAvatarEvent = useAvatar((s) => s.applyEvent);
   const setConnected = useWorld((s) => s.setConnected);
+  const refreshMapIfStale = useMap((s) => s.refreshIfStale);
 
   useEffect(() => {
     void fetchMe();
@@ -73,6 +75,11 @@ export default function App() {
         if (!isKnownEvent(evt.type)) return;
         applyWorldEvent(evt);
         applyAvatarEvent(evt);
+        // 管理员保存地图 → 版本号变化 → 重新拉取
+        if (evt.type === 'map_updated') {
+          const v = Number((evt.data as { version?: unknown }).version ?? 0);
+          if (Number.isFinite(v) && v > 0) refreshMapIfStale(v);
+        }
       },
       onConnected: (v) => setConnected(v),
       getLastTick: () => useWorld.getState().lastTick,
@@ -98,7 +105,7 @@ export default function App() {
     return () => {
       sse.stop();
     };
-  }, [user, bootstrapWorld, applyWorldEvent, applyAvatarEvent, setConnected]);
+  }, [user, bootstrapWorld, applyWorldEvent, applyAvatarEvent, setConnected, refreshMapIfStale]);
 
   if (!ready) return <FullScreen text="正在进入校园…" />;
 

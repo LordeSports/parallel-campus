@@ -9,8 +9,9 @@ import AdminSimulation from '../components/AdminSimulation';
 import AdminNpcs from '../components/AdminNpcs';
 import AdminScenes from '../components/AdminScenes';
 import AdminSettings from '../components/AdminSettings';
+import MapEditor from '../components/MapEditor';
 
-const tabs = ['总览', '模拟与环境', 'NPC 管理', '场景布置', 'API 配置'] as const;
+const tabs = ['总览', '校园地图', '模拟与环境', 'NPC 管理', '校园活动', 'API 配置'] as const;
 
 function Overview({ data }: { data: AdminOverviewView }) {
   const usage = data.status.llm_today;
@@ -96,9 +97,10 @@ export default function Admin() {
     {busy && <p role="status" className="mb-4 text-sm text-muted">正在应用修改，等待当前模拟步骤完成…</p>}
     {!overview || !settings ? <div className="card p-12 text-center text-muted">正在读取世界数据…</div> : <div key={tab} className="page-enter">
       {tab === '总览' && <Overview data={overview} />}
+      {tab === '校园地图' && <MapEditor />}
       {tab === '模拟与环境' && <AdminSimulation overview={overview} settings={settings} busy={busy} run={run} />}
       {tab === 'NPC 管理' && <AdminNpcs npcs={npcs} locations={locations} busy={busy} run={run} />}
-      {tab === '场景布置' && <AdminScenes scenes={scenes} locations={locations} busy={busy} run={run} />}
+      {tab === '校园活动' && <AdminScenes scenes={scenes} locations={locations} busy={busy} run={run} />}
       {tab === 'API 配置' && <AdminSettings settings={settings} busy={busy} run={run} />}
     </div>}
   </main></div>;

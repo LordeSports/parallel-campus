@@ -14,9 +14,16 @@
 |---|---|
 | **人格层** | 读知乎公开数据 → 证据包 → LLM 提炼 `PersonaFile`（原型、MBTI-like、大五、兴趣、立场、说话风格）。可编辑、可重生成。 |
 | **世界层** | 8 个地点、26 个分身（8 个 NPC + 真人分身 + 校园广播）。1 tick = 30 虚拟分钟，1 虚拟日 = 48 tick。日程驱动 + 刺激驱动的决策门控。 |
+| **校园地图** | **等距手绘风（isometric）可编辑地图**：建筑有屋顶与立面、地面有草地/土路/水域/跑道，树木、石块、长椅等摆件可独立摆放。管理员在后台拖动、缩放、增删，保存后经 SSE 实时同步给所有玩家。 |
 | **社交层** | 十种动作（move/talk/post/comment/like/dm/attend/do/search_zhihu/idle）；对话单次生成、逐轮推送；记忆打分检索；好感关系演化。 |
 | **回流层** | 校园墙（校园墙/树洞/公告）· 日记（心情曲线 + 时间线 + 夜间反思）· 耳语（每天 3 次）· 匹配报告（Top3 + 关系图）。 |
-| **实时层** | SSE 单向广播 20 类事件；连接数 = 观众数 → Ticker 速率自适应（online 20s / idle 300s / fast_forward 0s）。 |
+| **实时层** | SSE 单向广播事件；连接数 = 观众数 → Ticker 速率自适应（online 20s / idle 300s / fast_forward 0s）。 |
+
+> 两个视图的分工（都在 `/campus`）：
+> **校园地图**是等距手绘地图，管理员可改、所有人可见，角色按绑定的地点站在建筑前；
+> **校园活动**是原来的平面场景视图，展示角色此刻的位置、在场人数与正在进行的活动。
+
+**预览**：`docs/campus-map-preview.html`（自包含，直接双击打开即可看默认地图效果，支持拖动与缩放）。
 
 **核心设计取舍**：分身不是「被遥控的号」，是一个有记忆、会拒你的角色。耳语是**建议**而非**命令**——它会评估、可能采纳，也可能拒绝并给出理由。
 
@@ -125,6 +132,26 @@ python scripts/dump_openapi.py && python scripts/gen_ts_types.py
 > 注意：`GET /api/persona` 对尚未生成人格的用户返回 **404**（spec/03 §3），
 > 前端据此跳转 `/persona` 编辑器——这是预期行为，不是错误。
 
+### 校园地图：接口与需求演进
+
+| 端点 | 说明 |
+|---|---|
+| `GET /api/world/map` | 所有登录玩家读取地图（含 `version`），前端按版本失效 |
+| `GET /api/admin/map` | 管理员读取（同一份数据） |
+| `PUT /api/admin/map` | 整图覆盖保存，`version + 1`，广播 `map_updated` |
+
+数据落在两张新表：`campus_map`（版本、网格尺寸）+ `campus_map_objects`（每个建筑/摆件/地面块）。
+坐标用 **tile**（浮点），前端做等距投影（`frontend/src/map/iso.ts`，2:1 菱形网格）。
+
+相对 spec 的三处演进（**新增，未修改既有约定**）：
+
+1. SSE 事件多了一个 `map_updated`（spec/04 §4 原列 20 类；此前实现已有 `world_changed` 作为第 21 类）。
+2. 新增管理员「校园地图」编辑页；原「场景布置」更名为「校园活动」，与玩家端「校园活动」视图同名。
+3. 玩家端 `/campus` 增加「校园地图 / 校园活动」视图切换——路由表（spec/07 §1）未变，仍是 `/campus`。
+
+`CampusLocation`（地点语义、容量、氛围）与地图对象（视觉层）**解耦**：建筑通过 `location_id`
+回指地点，用来把角色画在对应建筑前；管理员重画地图不影响模拟逻辑。
+
 ---
 
 ## 四、环境变量
@@ -165,22 +192,25 @@ parallel-campus/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          REST 路由
-│   │   ├── models/       SQLModel 表（19 张）
+│   │   ├── models/       SQLModel 表
 │   │   ├── schemas/      请求/响应 + SSE payload
+│   │   ├── campus_map.py 可编辑校园地图：默认布局 + 读写
 │   │   ├── sim/          模拟引擎（世界/Ticker/门控/动作/对话/记忆/报告/总线）
 │   │   ├── llm/          LLM 网关 + 9 个 Jinja2 模板
 │   │   ├── zhihu/        知乎适配层（client / oauth / content / user_data / mock）
 │   │   ├── persona/      人格提取管线
 │   │   └── seeds/        seeds JSON + mock_zhihu 夹具
-│   ├── scripts/          OpenAPI 导出 / TS 类型生成 / 诊断
+│   ├── scripts/          OpenAPI 导出 / TS 类型生成 / 地图预览 / 验证脚本
 │   └── tests/
 ├── frontend/
 │   └── src/
 │       ├── api/          client · sse · endpoints · types（生成）
-│       ├── store/        session · world · wall · avatar（zustand）
-│       ├── components/   AppShell · MapCanvas · LiveFeed · CharacterDrawer
-│       │                 PersonaEditor · DeployForm · MoodChart · RelationGraph · Toast
-│       └── pages/        Login · Persona · Campus · Wall · Diary · Report
+│       ├── map/          iso.ts（等距投影与配色）
+│       ├── store/        session · world · wall · avatar · map（zustand）
+│       ├── components/   AppShell · IsoMap · MapEditor · MapCanvas · LiveFeed
+│       │                 CharacterDrawer · PersonaEditor · DeployForm · MoodChart · RelationGraph
+│       └── pages/        Login · Persona · Campus · Wall · Diary · Report · Admin
+├── docs/                 校园地图预览（自包含 HTML）
 ├── ops/                  部署与备份脚本
 ├── Dockerfile            多阶段：前端构建 → Python 运行时
 ├── docker-compose.yml    app（默认，直接 8000）+ caddy（可选 profile）
@@ -230,10 +260,11 @@ curl -N https://<域名>/api/stream -H "Cookie: pc_session=…"   # 15s 内应�
 同时配置独立、保密且稳定的 `SESSION_SECRET`，用于会话签名及管理配置加密。修改管理员用户名/密码后，旧管理会话失效。
 
 - **总览**：Agent/NPC/真人分身数量、在线人数、世界数据、今日 Token、按模型汇总与最近调用。
+- **校园地图**：等距手绘地图编辑器。左侧素材面板（地面 / 建筑 / 摆件）点选后在地图上点一下放置；拖动移动（半格吸附）、滚轮缩放、空白拖动平移；右侧属性面板可改样式、尺寸、高度、名称与**绑定地点**；支持撤销（Ctrl+Z）、复制、删除（Delete）、网格与适应视图。点「保存并同步」后版本号 +1，并向所有在线玩家广播 `map_updated`，玩家端自动重新拉取。
 - **模拟与环境**：自动/慢速/实时/暂停/快进；自定义每步间隔，修改立即唤醒等待中的循环（在途步骤先完成）。自动模式无人观看时约 5 秒一步，1 位观众按实时间隔运行，观众越多会逐步放慢，最多 180 秒一步；每步 30 个虚拟分钟，模型响应耗时可能限制实际速度。
 - **时间与天气**：向未来跳转并暂停、天气类型/温度/描述。跳时不补算沿途活动与报告，要补算请用快进；天气下一虚拟日重新生成。
 - **NPC**：新增、完整人格编辑、位置/活动/心情/精力/休息/启停。停用保留历史，不允许把普通用户改成管理员或修改其分身。
-- **场景**：在现有地点布置活动，设置描述、标签与时长，支持提前结束。
+- **校园活动**（原「场景布置」）：在现有地点布置活动，设置描述、标签与时长，支持提前结束。
 - **API 配置**：LLM 地址、强/经济模型、API Key，知乎 Access Secret 和 OAuth app ID/key。密钥不回显，留空保留，勾选清除才移除。更换 LLM 地址须重新输入 Key。
 
 后台设置加密保存在数据卷 `admin-settings.enc`，重启自动恢复，并优先于环境中的同名设置。备份数据卷时保留该文件及 `SESSION_SECRET`；更换 SESSION_SECRET 后原文件无法解密。开发模式下知乎仍使用 Mock，真实接入需配置 `DEV_MODE=false`。

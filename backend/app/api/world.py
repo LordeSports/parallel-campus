@@ -9,10 +9,12 @@ from fastapi import APIRouter, Query
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from .. import campus_map
 from ..constants import decompose_tick, mood_label, time_label as fmt_time_label
 from ..errors import NotFound
 from ..models import Character, Dialogue, Event, Memory, Relationship, User
 from ..schemas.domain import PersonaFile
+from ..schemas.map import CampusMapView
 from ..schemas.views import (
     ActiveEventView,
     BriefingView,
@@ -204,6 +206,13 @@ async def world_locations(session: SessionDep, user: CurrentUser) -> list[Locati
             )
         )
     return out
+
+
+@router.get("/map", response_model=CampusMapView)
+async def world_map(session: SessionDep, user: CurrentUser) -> CampusMapView:
+    """可编辑校园地图（等距手绘）。管理员的改动通过 `map_updated` 事件通知。"""
+    data = await campus_map.load_map(session)
+    return CampusMapView(**data)
 
 
 @router.get("/characters", response_model=list[CharacterSummaryView])

@@ -31,6 +31,7 @@ from ..constants import (
 )
 from ..db import get_engine, session_scope
 from ..models import (
+    CampusLocation,
     Character,
     Event,
     Post,
@@ -83,6 +84,7 @@ class World:
                 await session.refresh(state)
 
         world = cls(state)
+        await world.reload_locations()
         await world.reload_characters()
         await world.reload_active_events()
 
@@ -95,6 +97,27 @@ class World:
         async with session_scope() as session:
             rows = (await session.exec(select(Character))).all()
         self.characters = {c.id: c for c in rows}
+
+    async def reload_locations(self, session: AsyncSession | None = None) -> None:
+        """加载管理员地点覆盖；没有覆盖的地点沿用种子布局。"""
+        if session is None:
+            async with session_scope() as s:
+                rows = (await s.exec(select(CampusLocation).where(CampusLocation.is_active == True))).all()  # noqa: E712
+        else:
+            rows = (await session.exec(select(CampusLocation).where(CampusLocation.is_active == True))).all()
+        merged = location_map()
+        for row in rows:
+            try:
+                merged[row.id] = Location.model_validate({
+                    "id": row.id, "name": row.name, "emoji": row.emoji,
+                    "x": row.x, "y": row.y, "w": row.w, "h": row.h,
+                    "outdoor": row.outdoor, "description": row.description,
+                    "affordances": row.affordances or [], "ambience": row.ambience or {},
+                    "capacity": row.capacity,
+                })
+            except Exception:
+                log.warning("跳过非法管理员地点 %s", row.id)
+        self.locations = merged
 
     async def reload_active_events(self, session: AsyncSession | None = None) -> None:
         """刷新内存中的进行中事件。

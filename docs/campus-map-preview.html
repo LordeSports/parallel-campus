@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>平行校园 · 校园地图预览</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #f7f5ef; color: #1f2937;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  header { padding: 18px 22px 10px; }
+  h1 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+  .sub { font-size: 12.5px; color: #6b7280; line-height: 1.6; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 22px 0; }
+  button {
+    font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 10px;
+    border: 1px solid rgba(0,0,0,.1); background: #fff; color: #1f2937; cursor: pointer;
+  }
+  button:hover { background: #f3f4f6; }
+  button.on { background: #0084ff; border-color: #0084ff; color: #fff; }
+  .wrap { padding: 14px 22px 26px; }
+  .stage {
+    background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 18px;
+    overflow: hidden; box-shadow: 0 10px 30px rgba(15,23,42,.06);
+  }
+  svg { display: block; width: 100%; height: min(74vh, 720px); cursor: grab; touch-action: none; }
+  svg:active { cursor: grabbing; }
+  .legend { margin-top: 10px; font-size: 12px; color: #6b7280; display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend b { color: #374151; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>平行校园 · 校园地图（等距手绘风）</h1>
+  <p class="sub">
+    默认布局预览：8 个地点落为建筑，地面有草地 / 土路 / 水域 / 跑道，树上、石块、长椅、路灯可独立摆放。<br />
+    正式版在管理后台「校园地图」页可拖动、缩放、增删并保存，保存后通过 SSE 实时同步给所有玩家。
+  </p>
+</header>
+
+<div class="bar">
+  <button id="fit">适应视图</button>
+  <button id="grid">显示网格</button>
+  <button id="zz">−</button>
+  <button id="zi">＋</button>
+  <span class="sub" id="hint">拖动平移 · 滚轮缩放</span>
+</div>
+
+<div class="wrap">
+  <div class="stage"><svg id="map"></svg></div>
+  <div class="legend">
+    <span><b>建筑</b> 屋顶 + 立面（三面体）</span>
+    <span><b>地面</b> 草地 / 土路 / 水域 / 跑道 / 广场</span>
+    <span><b>摆件</b> 树 / 松 / 石块 / 长椅 / 路灯 / 花坛 / 公告板</span>
+    <span id="count"></span>
+  </div>
+</div>
+
+<script>
+const MAP = {"title": "平行校园", "cols": 40, "rows": 30, "objects": [{"id": "mo_default_000", "kind": "ground", "variant": "grass", "tx": 0.0, "ty": 0.0, "tw": 40.0, "th": 30.0, "height": 0.0, "layer": 0, "name": "校园草地", "location_id": null, "props": {"tone": 0.0, "seed": 11}, "sort_order": 0}, {"id": "mo_default_001", "kind": "ground", "variant": "water", "tx": 26.5, "ty": 15.5, "tw": 10.0, "th": 8.0, "height": 0.0, "layer": 1, "name": "未名湖", "location_id": "lakeside", "props": {"seed": 23, "ripple": true}, "sort_order": 0}, {"id": "mo_default_002", "kind": "ground", "variant": "sand", "tx": 25.5, "ty": 14.5, "tw": 12.0, "th": 10.0, "height": 0.0, "layer": 1, "name": "湖岸", "location_id": null, "props": {"seed": 29}, "sort_order": 0}, {"id": "mo_default_003", "kind": "ground", "variant": "field_track", "tx": 13.0, "ty": 16.0, "tw": 9.0, "th": 8.0, "height": 0.0, "layer": 2, "name": "操场", "location_id": "field", "props": {"seed": 37}, "sort_order": 0}, {"id": "mo_default_004", "kind": "ground", "variant": "plaza", "tx": 29.5, "ty": 23.0, "tw": 6.0, "th": 6.0, "height": 0.0, "layer": 2, "name": "校门口", "location_id": null, "props": {"seed": 41}, "sort_order": 0}, {"id": "mo_default_005", "kind": "ground", "variant": "plaza", "tx": 3.0, "ty": 16.0, "tw": 9.0, "th": 7.0, "height": 0.0, "layer": 2, "name": "食堂前坪", "location_id": null, "props": {"seed": 43}, "sort_order": 0}, {"id": "mo_default_006", "kind": "ground", "variant": "dirt", "tx": 1.0, "ty": 13.0, "tw": 38.0, "th": 2.0, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 50}, "sort_order": 0}, {"id": "mo_default_007", "kind": "ground", "variant": "dirt", "tx": 6.0, "ty": 11.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 51}, "sort_order": 0}, {"id": "mo_default_008", "kind": "ground", "variant": "dirt", "tx": 19.0, "ty": 10.0, "tw": 2.0, "th": 3.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 52}, "sort_order": 0}, {"id": "mo_default_009", "kind": "ground", "variant": "dirt", "tx": 30.0, "ty": 11.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 53}, "sort_order": 0}, {"id": "mo_default_010", "kind": "ground", "variant": "dirt", "tx": 6.0, "ty": 15.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 54}, "sort_order": 0}, {"id": "mo_default_011", "kind": "ground", "variant": "dirt", "tx": 6.0, "ty": 22.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 55}, "sort_order": 0}, {"id": "mo_default_012", "kind": "ground", "variant": "dirt", "tx": 31.0, "ty": 15.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 56}, "sort_order": 0}, {"id": "mo_default_013", "kind": "ground", "variant": "dirt", "tx": 20.0, "ty": 15.0, "tw": 2.0, "th": 3.0, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 57}, "sort_order": 0}, {"id": "mo_default_014", "kind": "ground", "variant": "dirt", "tx": 31.0, "ty": 22.0, "tw": 2.0, "th": 2.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 58}, "sort_order": 0}, {"id": "mo_default_015", "kind": "ground", "variant": "dirt", "tx": 1.0, "ty": 20.0, "tw": 6.0, "th": 1.5, "height": 0.0, "layer": 3, "name": "", "location_id": null, "props": {"seed": 59}, "sort_order": 0}, {"id": "mo_default_016", "kind": "building", "variant": "main", "tx": 4.0, "ty": 5.0, "tw": 8.0, "th": 6.0, "height": 4.0, "layer": 20, "name": "教学楼 A", "location_id": "teaching_a", "props": {"seed": 70, "hue": -0.024}, "sort_order": 0}, {"id": "mo_default_017", "kind": "building", "variant": "tower", "tx": 16.0, "ty": 4.0, "tw": 7.0, "th": 6.0, "height": 5.5, "layer": 20, "name": "图书馆", "location_id": "library", "props": {"seed": 71, "hue": 0.024}, "sort_order": 0}, {"id": "mo_default_018", "kind": "building", "variant": "hall", "tx": 28.0, "ty": 6.0, "tw": 6.0, "th": 5.0, "height": 3.0, "layer": 20, "name": "社团活动室", "location_id": "club_room", "props": {"seed": 72, "hue": -0.019}, "sort_order": 0}, {"id": "mo_default_019", "kind": "building", "variant": "canteen", "tx": 4.0, "ty": 17.0, "tw": 7.0, "th": 5.0, "height": 3.0, "layer": 20, "name": "第一食堂", "location_id": "canteen", "props": {"seed": 73, "hue": -0.016}, "sort_order": 0}, {"id": "mo_default_020", "kind": "building", "variant": "dorm", "tx": 3.0, "ty": 24.0, "tw": 9.0, "th": 5.0, "height": 4.0, "layer": 20, "name": "宿舍区", "location_id": "dorm", "props": {"seed": 74, "hue": 0.024}, "sort_order": 0}, {"id": "mo_default_021", "kind": "building", "variant": "shop", "tx": 30.0, "ty": 24.0, "tw": 5.0, "th": 4.0, "height": 2.0, "layer": 20, "name": "校门口奶茶店", "location_id": "milktea", "props": {"seed": 75, "hue": 0.017}, "sort_order": 0}, {"id": "mo_default_022", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 16.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 100, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_023", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 17.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 101, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_024", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 18.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 102, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_025", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 19.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 103, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_026", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 20.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 104, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_027", "kind": "prop", "variant": "bench", "tx": 25.8, "ty": 21.6, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "长椅", "location_id": "lakeside", "props": {"seed": 105, "facing": "east"}, "sort_order": 0}, {"id": "mo_default_028", "kind": "prop", "variant": "lamp", "tx": 3.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 120}, "sort_order": 0}, {"id": "mo_default_029", "kind": "prop", "variant": "lamp", "tx": 8.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 121}, "sort_order": 0}, {"id": "mo_default_030", "kind": "prop", "variant": "lamp", "tx": 13.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 122}, "sort_order": 0}, {"id": "mo_default_031", "kind": "prop", "variant": "lamp", "tx": 18.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 123}, "sort_order": 0}, {"id": "mo_default_032", "kind": "prop", "variant": "lamp", "tx": 23.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 124}, "sort_order": 0}, {"id": "mo_default_033", "kind": "prop", "variant": "lamp", "tx": 28.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 125}, "sort_order": 0}, {"id": "mo_default_034", "kind": "prop", "variant": "lamp", "tx": 33.0, "ty": 12.3, "tw": 0.8, "th": 0.8, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 126}, "sort_order": 0}, {"id": "mo_default_035", "kind": "prop", "variant": "tree", "tx": 2.0, "ty": 11.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 140}, "sort_order": 0}, {"id": "mo_default_036", "kind": "prop", "variant": "tree", "tx": 13.0, "ty": 11.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 141}, "sort_order": 0}, {"id": "mo_default_037", "kind": "prop", "variant": "pine", "tx": 25.0, "ty": 12.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 142}, "sort_order": 0}, {"id": "mo_default_038", "kind": "prop", "variant": "tree", "tx": 36.5, "ty": 12.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 143}, "sort_order": 0}, {"id": "mo_default_039", "kind": "prop", "variant": "tree", "tx": 2.5, "ty": 22.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 144}, "sort_order": 0}, {"id": "mo_default_040", "kind": "prop", "variant": "pine", "tx": 12.5, "ty": 24.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 145}, "sort_order": 0}, {"id": "mo_default_041", "kind": "prop", "variant": "tree", "tx": 25.0, "ty": 20.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 146}, "sort_order": 0}, {"id": "mo_default_042", "kind": "prop", "variant": "tree", "tx": 36.0, "ty": 20.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 147}, "sort_order": 0}, {"id": "mo_default_043", "kind": "prop", "variant": "pine", "tx": 26.5, "ty": 15.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 148}, "sort_order": 0}, {"id": "mo_default_044", "kind": "prop", "variant": "tree", "tx": 35.5, "ty": 16.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 149}, "sort_order": 0}, {"id": "mo_default_045", "kind": "prop", "variant": "tree", "tx": 14.5, "ty": 25.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 150}, "sort_order": 0}, {"id": "mo_default_046", "kind": "prop", "variant": "pine", "tx": 21.0, "ty": 25.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 151}, "sort_order": 0}, {"id": "mo_default_047", "kind": "prop", "variant": "tree", "tx": 9.0, "ty": 3.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 152}, "sort_order": 0}, {"id": "mo_default_048", "kind": "prop", "variant": "tree", "tx": 24.0, "ty": 3.5, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 153}, "sort_order": 0}, {"id": "mo_default_049", "kind": "prop", "variant": "pine", "tx": 0.8, "ty": 7.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 154}, "sort_order": 0}, {"id": "mo_default_050", "kind": "prop", "variant": "tree", "tx": 37.0, "ty": 8.0, "tw": 1.4, "th": 1.4, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 155}, "sort_order": 0}, {"id": "mo_default_051", "kind": "prop", "variant": "rock", "tx": 11.5, "ty": 13.5, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 160}, "sort_order": 0}, {"id": "mo_default_052", "kind": "prop", "variant": "rock", "tx": 23.5, "ty": 13.0, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 161}, "sort_order": 0}, {"id": "mo_default_053", "kind": "prop", "variant": "rock", "tx": 34.0, "ty": 24.5, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 162}, "sort_order": 0}, {"id": "mo_default_054", "kind": "prop", "variant": "rock", "tx": 8.0, "ty": 26.5, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 163}, "sort_order": 0}, {"id": "mo_default_055", "kind": "prop", "variant": "rock", "tx": 18.5, "ty": 22.0, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 164}, "sort_order": 0}, {"id": "mo_default_056", "kind": "prop", "variant": "rock", "tx": 1.5, "ty": 15.5, "tw": 1.0, "th": 0.9, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 165}, "sort_order": 0}, {"id": "mo_default_057", "kind": "prop", "variant": "flower", "tx": 5.0, "ty": 13.6, "tw": 1.2, "th": 1.2, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 180}, "sort_order": 0}, {"id": "mo_default_058", "kind": "prop", "variant": "flower", "tx": 20.0, "ty": 13.6, "tw": 1.2, "th": 1.2, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 181}, "sort_order": 0}, {"id": "mo_default_059", "kind": "prop", "variant": "flower", "tx": 33.0, "ty": 13.6, "tw": 1.2, "th": 1.2, "height": 0.0, "layer": 10, "name": "", "location_id": null, "props": {"seed": 182}, "sort_order": 0}, {"id": "mo_default_060", "kind": "prop", "variant": "board", "tx": 12.5, "ty": 13.2, "tw": 1.6, "th": 0.7, "height": 0.0, "layer": 10, "name": "公告板", "location_id": "teaching_a", "props": {"seed": 190}, "sort_order": 0}]};
+const TILE_W = 64, TILE_H = 32, WALL_UNIT = 22, PAD = 90;
+
+const GROUND = {
+  grass:      { fill: '#cfe6c4', edge: '#b6d5a9', tex: 'grass' },
+  dirt:       { fill: '#e3d3b6', edge: '#d3bf9c', tex: 'pebble' },
+  water:      { fill: '#a9d8e6', edge: '#8dc6d9', tex: 'ripple' },
+  field_track:{ fill: '#d9b18c', edge: '#c39a75', tex: 'track' },
+  plaza:      { fill: '#e6e2da', edge: '#d2cdc2', tex: 'tile' },
+  sand:       { fill: '#f0e2c4', edge: '#e0cfa8', tex: 'grain' },
+};
+const BUILDING = {
+  main:    { roof:'#e2a08c', roofEdge:'#cf8873', left:'#c9a692', right:'#dcbcaa', trim:'#f4ded4', kind:'flat'  },
+  tower:   { roof:'#9db8dc', roofEdge:'#7f9dc6', left:'#b7c3d6', right:'#cbd6e6', trim:'#e8eefa', kind:'gable' },
+  hall:    { roof:'#c2a8d4', roofEdge:'#a98fbd', left:'#c6b7d2', right:'#d8cbe2', trim:'#f0e8f6', kind:'flat'  },
+  canteen: { roof:'#e8bd8a', roofEdge:'#d4a470', left:'#d8c3a4', right:'#e7d5ba', trim:'#faeedd', kind:'gable' },
+  dorm:    { roof:'#e6cf9b', roofEdge:'#d0b782', left:'#d6cbb2', right:'#e6dcc6', trim:'#f7f0e0', kind:'flat'  },
+  shop:    { roof:'#8fcbbd', roofEdge:'#72b3a4', left:'#b3d6cd', right:'#c8e3db', trim:'#e6f5f1', kind:'flat'  },
+};
+
+const rows = MAP.rows, cols = MAP.cols;
+const originX = rows * TILE_W / 2;
+const W = (cols + rows) * TILE_W / 2 + PAD * 2;
+const H = (cols + rows) * TILE_H / 2 + PAD + 8 * WALL_UNIT + 40;
+
+function toScreen(tx, ty) { return { x: originX + (tx - ty) * TILE_W / 2, y: (tx + ty) * TILE_H / 2 }; }
+function toTile(x, y) { const dx = x - originX, a = dx / (TILE_W/2), b = y / (TILE_H/2); return { tx: (a+b)/2, ty: (b-a)/2 }; }
+function seeded(seed){ let s=(Math.floor(seed)||1)%233280; return ()=>{ s=(s*9301+49297)%233280; return s/233280; }; }
+function pathOf(pts){ return pts.map((p,i)=>`${i?'L':'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+' Z'; }
+function quad(tx,ty,tw,th){ return [toScreen(tx,ty), toScreen(tx+tw,ty), toScreen(tx+tw,ty+th), toScreen(tx,ty+th)]; }
+function wobblyEdge(a,b,seed,amp,segs){
+  const rnd = seeded(seed), out=[a], nx=-(b.y-a.y), ny=b.x-a.x, len=Math.hypot(nx,ny)||1;
+  for(let i=1;i<segs;i++){ const t=i/segs, off=(rnd()-.5)*2*amp;
+    out.push({ x:a.x+(b.x-a.x)*t+nx/len*off, y:a.y+(b.y-a.y)*t+ny/len*off }); }
+  out.push(b); return out;
+}
+function wobblyPolygon(pts,seed,amp){
+  const segs=[]; for(let i=0;i<pts.length;i++){ const e=wobblyEdge(pts[i],pts[(i+1)%pts.length],seed+i*17,amp,4); segs.push(...e.slice(0,-1)); }
+  return pathOf(segs);
+}
+function el(tag, attrs){ const n=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const k in attrs) if(attrs[k]!==undefined && attrs[k]!==null) n.setAttribute(k, attrs[k]); return n; }
+const up=(p,dy)=>({x:p.x,y:p.y-dy}), mid=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+const depthOf=(tx,ty,tw,th)=>tx+tw/2+(ty+th/2);
+
+const svg = document.getElementById('map');
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+// ── defs：纹理 pattern ──
+const defs = el('defs', {});
+defs.innerHTML = `
+  <pattern id="tex-grass" width="14" height="14" patternUnits="userSpaceOnUse">
+    <path d="M3 9 q1.5 -3 3 0" fill="none" stroke="#a9cd97" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M9 4 q1.5 -3 3 0" fill="none" stroke="#b9dba8" stroke-width="1" stroke-linecap="round"/>
+  </pattern>
+  <pattern id="tex-pebble" width="16" height="16" patternUnits="userSpaceOnUse">
+    <circle cx="4" cy="5" r="1.5" fill="#c9b28c" opacity=".85"/>
+    <circle cx="11" cy="10" r="1.2" fill="#d8c4a2" opacity=".8"/>
+    <circle cx="7" cy="13" r="1" fill="#bfa77f" opacity=".7"/>
+  </pattern>
+  <pattern id="tex-ripple" width="26" height="14" patternUnits="userSpaceOnUse">
+    <path d="M0 7 q6 -3 13 0 q6 3 13 0" fill="none" stroke="#d6f0f7" stroke-width="1.3" opacity=".9"/>
+    <path d="M0 12 q6 -3 13 0" fill="none" stroke="#bfe4f0" stroke-width="1" opacity=".7"/>
+  </pattern>
+  <pattern id="tex-tile" width="22" height="22" patternUnits="userSpaceOnUse">
+    <path d="M0 0 L22 0 M0 0 L0 22" stroke="#cfc9bd" stroke-width="1" opacity=".8"/>
+  </pattern>
+  <pattern id="tex-track" width="30" height="30" patternUnits="userSpaceOnUse">
+    <path d="M0 15 L30 15" stroke="#f2f5f7" stroke-width="1.4" opacity=".5"/>
+  </pattern>
+  <pattern id="tex-grain" width="12" height="12" patternUnits="userSpaceOnUse">
+    <circle cx="3" cy="3" r="1" fill="#e2d0aa"/><circle cx="8" cy="9" r="1.2" fill="#ddc99f"/>
+  </pattern>
+  <pattern id="tex-grid" width="${TILE_W/2}" height="${TILE_H/2}" patternUnits="userSpaceOnUse">
+    <path d="M0 0 L${TILE_W/2} ${TILE_H/4} L0 ${TILE_H/2} L${-TILE_W/2} ${TILE_H/4} Z" fill="none" stroke="#6b7280" stroke-opacity=".18" stroke-width=".7"/>
+  </pattern>`;
+svg.appendChild(defs);
+
+const bg = el('rect', { x:0, y:0, width:W, height:H, fill:'#f4f1e8' });
+svg.appendChild(bg);
+const world = el('g', {}); svg.appendChild(world);
+const gridPath = el('path', { fill:'url(#tex-grid)', display:'none' }); world.appendChild(gridPath);
+
+// ── 地面 ──
+function ground(o){
+  const st = GROUND[o.variant] || GROUND.grass;
+  const seed = Number((o.props||{}).seed ?? 7);
+  const corners = quad(o.tx,o.ty,o.tw,o.th);
+  const d = wobblyPolygon(corners, seed, o.tw>12?2.2:1.4);
+  const g = el('g', {});
+  g.appendChild(el('path', { d, fill: st.fill, stroke: st.edge, 'stroke-width': 1.2, 'stroke-linejoin':'round' }));
+  g.appendChild(el('path', { d, fill:`url(#tex-${st.tex})`, opacity:.85 }));
+  if (o.variant === 'field_track') {
+    g.appendChild(el('path', { d: pathOf(quad(o.tx+.7,o.ty+.7,o.tw-1.4,o.th-1.4)), fill:'#cfe0b4', stroke:'#f2f5f7', 'stroke-width':3, 'stroke-linejoin':'round' }));
+  }
+  return g;
+}
+
+// ── 建筑（三面体）──
+function building(o){
+  const st = BUILDING[o.variant] || BUILDING.main;
+  const h = (o.height||0)*WALL_UNIT, seed = Number((o.props||{}).seed ?? 5);
+  const [n,e,s,w] = quad(o.tx,o.ty,o.tw,o.th);
+  const nh=up(n,h), eh=up(e,h), sh=up(s,h), wh=up(w,h);
+  const g = el('g', {});
+  g.appendChild(el('path', { d: pathOf([n,e,s,w]), fill:'#64748b', opacity:.16, transform:'translate(3 5)' }));
+  g.appendChild(el('path', { d: pathOf([w,s,sh,wh]), fill: st.left }));
+  g.appendChild(el('path', { d: pathOf([s,e,eh,sh]), fill: st.right }));
+  g.appendChild(el('path', { d: `M${wh.x} ${wh.y} L${sh.x} ${sh.y} L${eh.x} ${eh.y}`, fill:'none', stroke: st.trim, 'stroke-width':2, opacity:.7 }));
+  const floors = Math.max(1, Math.round(o.height||0));
+  for(let i=1;i<floors;i++){ const dy=h*i/floors;
+    g.appendChild(el('path',{ d:`M${up(w,dy).x} ${up(w,dy).y} L${up(s,dy).x} ${up(s,dy).y}`, stroke:'#000', 'stroke-opacity':.06, 'stroke-width':1, fill:'none' }));
+  }
+  const rnd = seeded(seed);
+  const winCols = Math.max(1, Math.round(o.tw/1.6));
+  for(let i=0;i<winCols;i++){
+    const t0=(i+.3)/winCols, t1=(i+.7)/winCols;
+    for(let f=0; f<Math.max(1,floors-1); f++){
+      const off0 = -h*(f+.3)/floors, off1 = -h*(f+.72)/floors;
+      const p = [ {x:w.x+(s.x-w.x)*t0, y:w.y+(s.y-w.y)*t0+off0},
+                  {x:w.x+(s.x-w.x)*t1, y:w.y+(s.y-w.y)*t1+off0},
+                  {x:w.x+(s.x-w.x)*t1, y:w.y+(s.y-w.y)*t1+off1},
+                  {x:w.x+(s.x-w.x)*t0, y:w.y+(s.y-w.y)*t0+off1} ];
+      g.appendChild(el('path', { d: pathOf(p), fill:'#e8f1fb', opacity:.55+rnd()*.25, stroke:'#b9cfe4', 'stroke-width':.6 }));
+    }
+  }
+  const m1=mid(n,e), m2=mid(w,s), lift=h*.42;
+  if (st.kind === 'gable') {
+    const m1h=up(m1,lift), m2h=up(m2,lift);
+    g.appendChild(el('path', { d: pathOf([n,m1,m1h,m2h,m2,w]), fill: st.roof }));
+    g.appendChild(el('path', { d: pathOf([m1,e,s,m2,m2h,m1h]), fill: st.roofEdge }));
+    g.appendChild(el('path', { d: `M${wh.x} ${wh.y} L${m2h.x} ${m2h.y} L${m1h.x} ${m1h.y} L${eh.x} ${eh.y}`, fill:'none', stroke: st.trim, 'stroke-width':2, opacity:.85 }));
+  } else {
+    g.appendChild(el('path', { d: pathOf([w,s,e,n]), fill: st.roof }));
+    g.appendChild(el('path', { d: pathOf([wh,sh,eh,nh]), fill: st.roof, stroke: st.roofEdge, 'stroke-width':1.4 }));
+    g.appendChild(el('path', { d: pathOf([
+      {x:wh.x+(sh.x-wh.x)*.3, y:wh.y+(sh.y-wh.y)*.3-6},
+      {x:nh.x+(eh.x-nh.x)*.55, y:nh.y+(eh.y-nh.y)*.55-6},
+      {x:nh.x+(eh.x-nh.x)*.55, y:nh.y+(eh.y-nh.y)*.55-1},
+      {x:wh.x+(sh.x-wh.x)*.3, y:wh.y+(sh.y-wh.y)*.3-1} ]), fill:'#fff', opacity:.38 }));
+  }
+  return g;
+}
+
+// ── 摆件 ──
+function prop(o){
+  const seed = Number((o.props||{}).seed ?? 3), rnd = seeded(seed);
+  const p = toScreen(o.tx+o.tw/2, o.ty+o.th/2);
+  const g = el('g', {});
+  const shadow = el('ellipse', { cx:p.x+2, cy:p.y+3, rx:13*(o.tw/1.4), ry:5, fill:'#64748b', opacity:.16 });
+  const T = '#b08462', TL='#8fc98f', TL2='#a6d8a0', PL='#7bb98a', PL2='#93c99f';
+  switch(o.variant){
+    case 'tree':
+      g.appendChild(shadow);
+      g.appendChild(el('rect',{x:p.x-2.6,y:p.y-12,width:5.2,height:13,rx:2.4,fill:T}));
+      g.appendChild(el('circle',{cx:p.x,cy:p.y-26,r:14.5,fill:TL}));
+      g.appendChild(el('circle',{cx:p.x+8,cy:p.y-32,r:10,fill:TL2}));
+      g.appendChild(el('circle',{cx:p.x-8,cy:p.y-30,r:9,fill:TL2,opacity:.9}));
+      break;
+    case 'pine': {
+      const h=30+rnd()*8;
+      g.appendChild(shadow);
+      g.appendChild(el('rect',{x:p.x-2.4,y:p.y-10,width:4.8,height:11,rx:2,fill:T}));
+      g.appendChild(el('path',{d:pathOf([{x:p.x,y:p.y-h-14},{x:p.x+12,y:p.y-h*.55},{x:p.x-12,y:p.y-h*.55}]),fill:PL}));
+      g.appendChild(el('path',{d:pathOf([{x:p.x,y:p.y-h},{x:p.x+14,y:p.y-h*.3},{x:p.x-14,y:p.y-h*.3}]),fill:PL2}));
+      break;
+    }
+    case 'rock':
+      g.appendChild(shadow);
+      g.appendChild(el('path',{d:pathOf([{x:p.x-9,y:p.y+2},{x:p.x-6,y:p.y-7},{x:p.x+1,y:p.y-10},{x:p.x+8,y:p.y-4},{x:p.x+9,y:p.y+2}]),fill:'#c3c8cf',stroke:'#a9b0b8','stroke-width':.8}));
+      g.appendChild(el('path',{d:pathOf([{x:p.x-6,y:p.y-7},{x:p.x+1,y:p.y-10},{x:p.x+2,y:p.y-5}]),fill:'#d7dade',opacity:.9}));
+      break;
+    case 'bench': {
+      const bw=o.tw*TILE_W*.42, hh=9;
+      const a={x:p.x-bw/2,y:p.y}, b={x:p.x+bw/2,y:p.y-(bw/2)*(TILE_H/TILE_W)},
+            c={x:p.x+bw/2,y:p.y+(bw/2)*(TILE_H/TILE_W)}, d={x:p.x-bw/2,y:p.y};
+      g.appendChild(el('ellipse',{cx:p.x,cy:p.y+4,rx:bw*.55,ry:4.5,fill:'#64748b',opacity:.16}));
+      g.appendChild(el('path',{d:pathOf([a,b,c,d]),fill:'#dcbe9a'}));
+      g.appendChild(el('path',{d:pathOf([a,d,{x:d.x,y:d.y+hh},{x:a.x,y:a.y+hh}]),fill:'#c9a882'}));
+      g.appendChild(el('path',{d:pathOf([d,c,{x:c.x,y:c.y+hh},{x:d.x,y:d.y+hh}]),fill:'#a98962',opacity:.9}));
+      g.appendChild(el('path',{d:`M${b.x} ${b.y-9} L${c.x} ${c.y-9} L${d.x} ${d.y-9}`,fill:'none',stroke:'#dcbe9a','stroke-width':3,'stroke-linecap':'round'}));
+      break;
+    }
+    case 'lamp':
+      g.appendChild(shadow);
+      g.appendChild(el('rect',{x:p.x-1.6,y:p.y-26,width:3.2,height:27,rx:1.6,fill:'#a8aab0'}));
+      g.appendChild(el('circle',{cx:p.x,cy:p.y-29,r:7,fill:'#ffe9a8',opacity:.95}));
+      g.appendChild(el('circle',{cx:p.x,cy:p.y-29,r:4.5,fill:'#fff8dc'}));
+      break;
+    case 'flower': {
+      const cs=['#f2b8c6','#f6d68f','#c9b6e8'];
+      for(let i=0;i<6;i++){ const a2=(i/6)*Math.PI*2+rnd(), rr=5+rnd()*7;
+        g.appendChild(el('circle',{cx:p.x+Math.cos(a2)*rr, cy:p.y+Math.sin(a2)*rr*.5, r:2.6, fill:cs[i%3]})); }
+      break;
+    }
+    case 'board':
+      g.appendChild(shadow);
+      g.appendChild(el('rect',{x:p.x-13,y:p.y-26,width:26,height:17,rx:2.5,fill:'#f5efe2',stroke:'#c8ab86','stroke-width':2}));
+      g.appendChild(el('path',{d:`M${p.x-9} ${p.y-21} L${p.x+9} ${p.y-21}`,stroke:'#cfc7b6','stroke-width':1.4}));
+      g.appendChild(el('path',{d:`M${p.x-9} ${p.y-17} L${p.x+4} ${p.y-17}`,stroke:'#cfc7b6','stroke-width':1.4}));
+      g.appendChild(el('rect',{x:p.x-12,y:p.y-9,width:3,height:10,rx:1.4,fill:'#c8ab86'}));
+      g.appendChild(el('rect',{x:p.x+9,y:p.y-9,width:3,height:10,rx:1.4,fill:'#c8ab86'}));
+      break;
+  }
+  return g;
+}
+
+// 按 layer + 深度排序（等距遮挡）
+const ordered = MAP.objects.slice().sort((a,b)=>{
+  const la=a.layer||0, lb=b.layer||0;
+  if(la!==lb) return la-lb;
+  return depthOf(a.tx,a.ty,a.tw,a.th) - depthOf(b.tx,b.ty,b.tw,b.th);
+});
+
+gridPath.setAttribute('d', pathOf([toScreen(0,0),toScreen(cols,0),toScreen(cols,rows),toScreen(0,rows)]));
+
+const content = el('g', {});
+world.appendChild(content);
+for (const o of ordered) {
+  content.appendChild(o.kind === 'ground' ? ground(o) : o.kind === 'building' ? building(o) : prop(o));
+}
+
+// 地点名牌
+for (const o of MAP.objects) {
+  if (o.kind !== 'building' || !o.name) continue;
+  const c = toScreen(o.tx + o.tw/2, o.ty + o.th/2);
+  const t = el('text', { x: c.x, y: c.y - (o.height||0)*WALL_UNIT - 26, 'text-anchor':'middle',
+    'font-size':13, fill:'#374151', 'font-weight':600, stroke:'#fff', 'stroke-width':3.5,
+    'paint-order':'stroke', style:'pointer-events:none' });
+  t.textContent = o.name;
+  content.appendChild(t);
+}
+
+document.getElementById('count').textContent =
+  `${MAP.objects.length} 个对象（${MAP.objects.filter(o=>o.kind==='ground').length} 地面 / ${MAP.objects.filter(o=>o.kind==='building').length} 建筑 / ${MAP.objects.filter(o=>o.kind==='prop').length} 摆件）`;
+
+// ── 视口交互 ──
+let zoom = 1, panX = 0, panY = 0;
+function apply(){ world.setAttribute('transform', `translate(${panX} ${panY}) scale(${zoom})`); }
+function fit(){ zoom = 1; panX = 0; panY = 0; apply(); document.getElementById('fit').classList.add('on');
+  setTimeout(()=>document.getElementById('fit').classList.remove('on'), 400); }
+
+function clientToWorld(cx, cy){
+  const m = svg.getScreenCTM(); if(!m) return null;
+  const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+  const vb = pt.matrixTransform(m.inverse());
+  return { x: (vb.x - panX)/zoom, y: (vb.y - panY)/zoom };
+}
+
+svg.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const wpt = clientToWorld(e.clientX, e.clientY); if(!wpt) return;
+  const f = e.deltaY > 0 ? 0.9 : 1.1;
+  const nz = Math.max(0.35, Math.min(3.5, zoom*f));
+  const sx = wpt.x*zoom + panX, sy = wpt.y*zoom + panY;
+  zoom = nz; panX = sx - wpt.x*nz; panY = sy - wpt.y*nz; apply();
+}, { passive: false });
+
+let pan = null;
+svg.addEventListener('pointerdown', (e)=>{ pan={cx:e.clientX, cy:e.clientY, px:panX, py:panY}; svg.setPointerCapture(e.pointerId); });
+svg.addEventListener('pointermove', (e)=>{ if(!pan) return;
+  panX = pan.px + (e.clientX-pan.cx); panY = pan.py + (e.clientY-pan.cy); apply(); });
+svg.addEventListener('pointerup', ()=>{ pan=null; });
+svg.addEventListener('pointerleave', ()=>{ pan=null; });
+
+document.getElementById('fit').addEventListener('click', fit);
+document.getElementById('zi').addEventListener('click', ()=>{ zoom=Math.min(3.5, zoom*1.15); apply(); });
+document.getElementById('zz').addEventListener('click', ()=>{ zoom=Math.max(.35, zoom/1.15); apply(); });
+document.getElementById('grid').addEventListener('click', (e)=>{
+  const on = gridPath.getAttribute('display') === 'none';
+  gridPath.setAttribute('display', on ? 'inline' : 'none');
+  e.currentTarget.classList.toggle('on', on);
+});
+apply();
+</script>
+</body>
+</html>

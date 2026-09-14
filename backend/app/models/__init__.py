@@ -2,6 +2,9 @@
 
 from .tables import (  # noqa: F401
     Character,
+    CampusLocation,
+    CampusMap,
+    CampusMapObject,
     Comment,
     Dialogue,
     Event,

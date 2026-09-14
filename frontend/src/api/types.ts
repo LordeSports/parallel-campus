@@ -11,7 +11,7 @@ export type ActiveEventView = {
   "kind": string;
   "title": string;
   "description"?: string;
-  "location_id"?: "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside" | null;
+  "location_id"?: string | null;
   "start_tick"?: number;
   "end_tick"?: number;
   "tags"?: string[];
@@ -93,7 +93,7 @@ export type AvatarView = {
   "kind": "player" | "npc" | "system";
   "name": string;
   "avatar_key": string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "activity"?: string;
   "mood"?: MoodView;
   "is_asleep"?: boolean;
@@ -122,12 +122,22 @@ export type CampusIdentity = {
   "club"?: string | null;
 };
 
+export type CampusMapView = {
+  "version": number;
+  "cols": number;
+  "rows": number;
+  "title"?: string;
+  "updated_at"?: string | null;
+  "updated_by"?: string | null;
+  "objects"?: MapObjectView[];
+};
+
 export type CharacterDetailView = {
   "id": string;
   "kind": "player" | "npc" | "system";
   "name": string;
   "avatar_key": string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "activity"?: string;
   "mood"?: MoodView;
   "is_asleep"?: boolean;
@@ -147,7 +157,7 @@ export type CharacterSummaryView = {
   "kind": "player" | "npc" | "system";
   "name": string;
   "avatar_key": string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "activity"?: string;
   "mood"?: MoodView;
   "is_asleep"?: boolean;
@@ -202,7 +212,7 @@ export type DialogueView = {
   "id": string;
   "tick": number;
   "time_label": string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "a_id": string;
   "b_id": string;
   "turns"?: DialogueTurnView[];
@@ -291,7 +301,7 @@ export type LlmTodayView = {
 };
 
 export type LocationView = {
-  "id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "id": string;
   "name": string;
   "emoji": string;
   "x": number;
@@ -304,6 +314,41 @@ export type LocationView = {
   "ambience"?: Record<string, string>;
   "capacity": number;
   "occupants"?: string[];
+};
+
+export type MapObjectInput = {
+  "id"?: string | null;
+  "kind": "ground" | "building" | "prop";
+  "variant": string;
+  "tx": number;
+  "ty": number;
+  "tw"?: number;
+  "th"?: number;
+  "height"?: number;
+  "layer"?: number;
+  "name"?: string;
+  "location_id"?: string | null;
+  "props"?: Record<string, unknown>;
+};
+
+export type MapObjectView = {
+  "id": string;
+  "kind": "ground" | "building" | "prop";
+  "variant": string;
+  "tx": number;
+  "ty": number;
+  "tw": number;
+  "th": number;
+  "height"?: number;
+  "layer"?: number;
+  "name"?: string;
+  "location_id"?: string | null;
+  "props"?: Record<string, unknown>;
+};
+
+export type MapSaveRequest = {
+  "objects"?: MapObjectInput[];
+  "title"?: string | null;
 };
 
 export type MemoryItemView = {
@@ -332,7 +377,7 @@ export type NpcRequest = {
   "name": string;
   "avatar_key"?: string;
   "persona": PersonaFile;
-  "location_id"?: "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id"?: string;
   "activity"?: string;
   "energy"?: number;
   "mood_valence"?: number;
@@ -346,7 +391,7 @@ export type NpcView = {
   "kind": "player" | "npc" | "system";
   "name": string;
   "avatar_key": string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "activity"?: string;
   "mood"?: MoodView;
   "is_asleep"?: boolean;
@@ -446,7 +491,7 @@ export type ReportView = {
 export type SceneRequest = {
   "title": string;
   "description"?: string;
-  "location_id": "teaching_a" | "library" | "canteen" | "field" | "dorm" | "milktea" | "club_room" | "lakeside";
+  "location_id": string;
   "duration_ticks"?: number;
   "tags"?: string[];
 };
@@ -609,6 +654,10 @@ export interface paths {
   "/api/admin/logout": {
     post: "admin_logout_api_admin_logout_post";
   };
+  "/api/admin/map": {
+    get: "get_campus_map_api_admin_map_get";
+    put: "save_campus_map_api_admin_map_put";
+  };
   "/api/admin/npcs": {
     get: "npcs_api_admin_npcs_get";
     post: "create_npc_api_admin_npcs_post";
@@ -728,6 +777,9 @@ export interface paths {
   };
   "/api/world/locations": {
     get: "world_locations_api_world_locations_get";
+  };
+  "/api/world/map": {
+    get: "world_map_api_world_map_get";
   };
   "/api/world/state": {
     get: "world_state_api_world_state_get";
