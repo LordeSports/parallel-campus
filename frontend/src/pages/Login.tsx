@@ -60,10 +60,35 @@ function OauthDebugPanel() {
                 <dd className="text-ink">{String(data.cookie_secure)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-28 shrink-0 text-muted">凭证</dt>
+                <dt className="w-28 shrink-0 text-muted">App ID</dt>
+                <dd className="break-all font-mono text-[11px] text-ink">
+                  {data.app_id || '（空）'}
+                  <span className="ml-2 font-sans text-muted">来源：{data.app_id_source}</span>
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">App Key</dt>
                 <dd className="text-ink">
-                  App ID {yes(data.app_id_configured)} · App Key {yes(data.app_key_configured)} ·
-                  Access Secret {yes(data.access_secret_configured)}
+                  {yes(data.app_key_configured)}
+                  <span className="ml-2 text-muted">来源：{data.app_key_source}</span>
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">Access Secret</dt>
+                <dd className="text-ink">
+                  {yes(data.access_secret_configured)}
+                  <span className="ml-2 text-muted">来源：{data.access_secret_source}</span>
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">代码指纹</dt>
+                <dd className="break-all text-ink">
+                  <span className="font-mono text-[11px]">{data.build}</span>
+                  {data.overridden_fields.length > 0 && (
+                    <span className="ml-2 text-muted">
+                      后台配置覆盖：{data.overridden_fields.join('、')}
+                    </span>
+                  )}
                 </dd>
               </div>
             </dl>

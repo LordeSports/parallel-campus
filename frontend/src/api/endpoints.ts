@@ -59,12 +59,18 @@ export interface OauthLogEntry {
 
 export interface OauthLogView {
   dev_mode: boolean;
+  build: string;
   public_base_url: string;
   redirect_uri: string;
   cookie_secure: boolean;
+  app_id: string;
   app_id_configured: boolean;
+  app_id_source: string;
   app_key_configured: boolean;
+  app_key_source: string;
   access_secret_configured: boolean;
+  access_secret_source: string;
+  overridden_fields: string[];
   entries: OauthLogEntry[];
 }
 

@@ -8,6 +8,7 @@ from .. import __version__
 from ..config import settings
 from ..schemas.views import HealthView
 from ..sim.world import get_world
+from ..version import build_fingerprint
 from .deps import OptionalUser, SessionDep
 
 router = APIRouter(tags=["health"])
@@ -23,7 +24,12 @@ async def health(session: SessionDep, user: OptionalUser) -> HealthView:
         tick = 0
         mode = "idle"
     return HealthView(
-        status="ok", version=__version__, tick=tick, mode=mode, dev_mode=settings.dev_mode
+        status="ok",
+        version=__version__,
+        build=build_fingerprint(),
+        tick=tick,
+        mode=mode,
+        dev_mode=settings.dev_mode,
     )
 
 

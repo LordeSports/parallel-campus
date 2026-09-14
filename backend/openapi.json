@@ -12,7 +12,7 @@
      "auth"
     ],
     "summary": "Oauth Debug Log",
-    "description": "仅 DEV_MODE：返回最近的 OAuth 调试日志（登录页会展示，便于自查）。\n顺带回显生效中的回调配置——「登录状态已过期」九成是这里的 host/协议对不上。",
+    "description": "仅 DEV_MODE：返回最近的 OAuth 调试日志（登录页会展示，便于自查）。\n\n顺带回显生效中的回调配置——「登录状态已过期」九成是这里的 host/协议对不上。\n另附 `build` 指纹与每个凭证的**来源**（`.env` 还是后台加密配置）：\n后台保存的值优先于 `.env` 且存在数据卷里，重建容器不会清掉，\n是「改了配置却没生效」的常见原因。",
     "operationId": "oauth_debug_log_api_auth_oauth_log_get",
     "responses": {
      "200": {
@@ -3752,6 +3752,11 @@
       "title": "Version",
       "default": "0.1.0"
      },
+     "build": {
+      "type": "string",
+      "title": "Build",
+      "default": ""
+     },
      "tick": {
       "type": "integer",
       "title": "Tick",
@@ -5132,6 +5137,17 @@
      "ok": {
       "type": "boolean",
       "title": "Ok"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
      }
     },
     "type": "object",

@@ -53,6 +53,18 @@ def load_runtime_settings() -> None:
         setattr(settings, name, value)
 
 
+def overridden_fields() -> set[str]:
+    """返回**被后台加密配置覆盖**的字段名（读不出时返回空集）。
+
+    排查「我明明改了 .env 怎么没生效」时用：后台保存的值优先级高于 `.env`，
+    而它存在数据卷里、重建容器不会清掉。
+    """
+    try:
+        return set(_read())
+    except Exception:
+        return set()
+
+
 async def reload_clients() -> None:
     """配置变更后重建客户端并保留用量记录回调；调用时不应有在途 LLM。"""
     from .llm.gateway import get_llm, reset_llm

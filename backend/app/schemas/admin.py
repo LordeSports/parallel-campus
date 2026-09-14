@@ -182,6 +182,7 @@ class UsageItemView(BaseModel):
     completion_tokens: int
     latency_ms: int
     ok: bool
+    error: str | None = None
 
 
 class AdminOverviewView(BaseModel):

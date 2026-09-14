@@ -189,6 +189,35 @@ GET /api/auth/zhihu/callback?code=…&state=…
 另外凭证需要的是 **App ID + App Key**；`ZHIHU_ACCESS_SECRET` 是调开放接口用的，
 **不能**用来换登录 token。拿不到 App Key 就用登录页的「开发登录」。
 
+#### 先确认「线上跑的到底是哪一版代码」
+
+排查改了代码却没生效时，**第一步永远是确认容器有没有真的重建**。两个办法：
+
+```bash
+# ① 代码指纹：源码内容哈希，代码一改就变（不含 git，不受 mtime 影响）
+curl -s http://localhost:8000/api/health | python -c "import json,sys; print(json.load(sys.stdin)['build'])"
+cd backend && python -c "from app.version import build_fingerprint; print(build_fingerprint())"
+# 两个值一致 → 线上就是本地这版；不一致 → 容器没重建（用 docker compose up -d --build，不要只 restart）
+
+# ② dev 调试面板里的「代码指纹」一行，附带「后台配置覆盖」提示
+```
+
+> 日志格式也是指纹：修复后 `callback_state_mismatch` 会带 `reason=` / `cookie_signature_ok=`
+> / `cookie_age_seconds=` 字段。**只有 `why=` 而没有 `reason=`，说明跑的是修复前的代码。**
+
+#### 配置到底来自 `.env` 还是后台？
+
+管理后台保存的值加密存在数据卷 `admin-settings.enc`，**优先级高于 `.env`，且重建容器不会清掉**——
+这是「我明明改了 `.env` 却没生效」的常见原因。dev 调试面板会显示每个凭证的 `来源`，
+以及 `overridden_fields`（被后台覆盖的字段清单）。
+
+注意事项：
+
+1. **改完 `.env` 必须 `docker compose up -d`（重建），`restart` 不会重读 `env_file`。**
+2. `PUBLIC_BASE_URL` / `ZHIHU_OAUTH_REDIRECT_URI` **后台改不了**，只能来自 `.env`。
+3. `SESSION_SECRET` 同时管会话 cookie 签名 + `admin-settings.enc` 的加密密钥，
+   改过它会让旧的后台配置解不开（并导致启动失败，见下）。
+
 ---
 
 ## 四、环境变量

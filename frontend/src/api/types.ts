@@ -264,6 +264,7 @@ export type HTTPValidationError = {
 export type HealthView = {
   "status"?: string;
   "version"?: string;
+  "build"?: string;
   "tick"?: number;
   "mode"?: string;
   "dev_mode"?: boolean;
@@ -548,6 +549,7 @@ export type UsageItemView = {
   "completion_tokens": number;
   "latency_ms": number;
   "ok": boolean;
+  "error"?: string | null;
 };
 
 export type User = {

@@ -24,7 +24,13 @@ from ..schemas.admin import (
 from ..schemas.events import make_event
 from ..schemas.map import CampusMapView, MapSaveRequest
 from ..schemas.views import ActiveEventView, LocationView, ModeResponse, WorldStateView
-from ..security import ADMIN_COOKIE, ADMIN_SESSION_MAX_AGE, sign_admin_session, verify_admin_session
+from ..security import (
+    ADMIN_COOKIE,
+    ADMIN_SESSION_MAX_AGE,
+    redact,
+    sign_admin_session,
+    verify_admin_session,
+)
 from ..seeds import avatars, default_schedule
 from ..sim.world import get_world
 from .admin import status
@@ -104,7 +110,8 @@ async def overview(_: AdminGuard, session: SessionDep) -> AdminOverviewView:
         usage_by_model=list(groups.values()),
         recent_usage=[UsageItemView(id=r.id, at=r.at.isoformat() + "Z", model=r.model, tier=r.tier,
                                    template=r.template, prompt_tokens=r.prompt_tokens,
-                                   completion_tokens=r.completion_tokens, latency_ms=r.latency_ms, ok=r.ok)
+                                   completion_tokens=r.completion_tokens, latency_ms=r.latency_ms, ok=r.ok,
+                                   error=redact(r.error) if r.error else None)
                       for r in recent], scenes=[active_event_view(row) for row in scenes],
     )
 

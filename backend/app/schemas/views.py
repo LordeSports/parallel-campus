@@ -510,6 +510,7 @@ class HotPullResponse(View):
 class HealthView(View):
     status: str = "ok"
     version: str = "0.1.0"
+    build: str = ""
     tick: int = 0
     mode: str = "idle"
     dev_mode: bool = False

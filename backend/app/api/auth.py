@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlmodel import col, select
 
+from ..admin_settings import overridden_fields
 from ..config import settings
 from ..errors import NotFound, Unauthorized
 from ..models import Character, Persona, User, new_id, now_utc
@@ -26,6 +27,7 @@ from ..security import (
     verify_oauth_state,
 )
 from ..zhihu.oauth import authorize_url, exchange_code
+from ..version import build_fingerprint
 from .deps import CurrentUser, SessionDep, WriteSessionDep, OptionalUser
 
 log = logging.getLogger("pc.api.auth")
@@ -68,18 +70,34 @@ async def _user_view(session: SessionDep, user: User) -> UserView:
 @router.get("/oauth-log")
 async def oauth_debug_log() -> dict[str, object]:
     """仅 DEV_MODE：返回最近的 OAuth 调试日志（登录页会展示，便于自查）。
+
     顺带回显生效中的回调配置——「登录状态已过期」九成是这里的 host/协议对不上。
+    另附 `build` 指纹与每个凭证的**来源**（`.env` 还是后台加密配置）：
+    后台保存的值优先于 `.env` 且存在数据卷里，重建容器不会清掉，
+    是「改了配置却没生效」的常见原因。
     """
     if not settings.dev_mode:
         raise NotFound("OAuth 调试日志仅在 DEV_MODE 下可用")
+
+    overridden = overridden_fields()
+
+    def source_of(field: str) -> str:
+        return "后台配置" if field in overridden else ".env"
+
     return {
         "dev_mode": True,
+        "build": build_fingerprint(),
         "public_base_url": settings.public_base_url,
         "redirect_uri": settings.zhihu_oauth_redirect_uri,
         "cookie_secure": settings.cookie_secure,
+        "app_id": settings.zhihu_oauth_app_id,
         "app_id_configured": bool(settings.zhihu_oauth_app_id),
+        "app_id_source": source_of("zhihu_oauth_app_id"),
         "app_key_configured": bool(settings.zhihu_oauth_app_key),
+        "app_key_source": source_of("zhihu_oauth_app_key"),
         "access_secret_configured": bool(settings.zhihu_access_secret),
+        "access_secret_source": source_of("zhihu_access_secret"),
+        "overridden_fields": sorted(overridden),
         "entries": oauth_log.recent(40),
     }
 
