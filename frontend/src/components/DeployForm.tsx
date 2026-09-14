@@ -4,12 +4,7 @@ import { useState } from 'react';
 
 import { personaApi } from '../api/endpoints';
 import type { CharacterDetailView, DeployRequest, PersonaFile } from '../api/types';
-
-const AVATAR_KEYS = [
-  ...'🌱🌊🔥⭐🌙🍀🎧📚'.split(''),
-  ...'🎨⚽🎸☕🧋🛹🌻🐧'.split(''),
-  ...'🦊🐳🍜🎬🧩🪴'.split(''),
-].slice(0, 24);
+import { AVATAR_KEYS, avatarMeta } from '../avatar';
 
 const GRADES: DeployRequest['grade'][] = ['大一', '大二', '大三', '大四', '研一', '研二', '研三'];
 
@@ -66,21 +61,24 @@ export default function DeployForm({
         <div>
           <label className="mb-1.5 block text-xs text-muted">挑一个头像</label>
           <div className="grid grid-cols-8 gap-1.5">
-            {AVATAR_KEYS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                className={[
-                  'grid aspect-square place-items-center rounded-lg text-lg transition-all',
-                  avatarKey === k
-                    ? 'bg-brand-50 ring-2 ring-brand-500'
-                    : 'bg-black/5 hover:bg-black/10',
-                ].join(' ')}
-                onClick={() => setAvatarKey(k)}
-              >
-                {k}
-              </button>
-            ))}
+            {AVATAR_KEYS.map((k) => {
+              const meta = avatarMeta(k);
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  title={k}
+                  style={{ background: meta.bg }}
+                  className={[
+                    'grid aspect-square place-items-center rounded-lg text-lg transition-all',
+                    avatarKey === k ? 'ring-2 ring-brand-500' : 'hover:brightness-95',
+                  ].join(' ')}
+                  onClick={() => setAvatarKey(k)}
+                >
+                  <span className="emoji">{meta.emoji}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

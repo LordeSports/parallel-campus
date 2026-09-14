@@ -3,12 +3,102 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import { authApi, healthApi } from '../api/endpoints';
+import { authApi, healthApi, type OauthLogView } from '../api/endpoints';
 import { ApiError } from '../api/client';
 import { oauthErrorText, sse } from '../api/sse';
 import { landingPath, useSession } from '../store/session';
 
-type Tab = 'zhihu' | 'judge' | 'dev';
+type Tab = 'zhihu' | 'dev';
+
+/** DEV 环境下的 OAuth 调试面板：一眼看出回调配置与失败环节。 */
+function OauthDebugPanel() {
+  const [data, setData] = useState<OauthLogView | null>(null);
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const load = () => {
+    setFailed(false);
+    authApi
+      .oauthLog()
+      .then(setData)
+      .catch(() => {
+        setData(null);
+        setFailed(true);
+      });
+  };
+
+  useEffect(() => {
+    if (open) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const yes = (v: boolean) => (v ? '✅' : '❌');
+
+  return (
+    <details
+      className="card mt-4 overflow-hidden"
+      onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
+    >
+      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">
+        OAuth 调试日志 <span className="ml-1 text-xs font-normal text-muted">（仅 DEV_MODE）</span>
+      </summary>
+      <div className="space-y-3 border-t border-black/5 px-4 py-3 text-xs">
+        {failed && <p className="text-muted">后端未开启 DEV_MODE，或该接口不可用。</p>}
+        {data && (
+          <>
+            <dl className="grid gap-1.5">
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">回调地址</dt>
+                <dd className="break-all font-mono text-[11px] text-ink">{data.redirect_uri}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">站点地址</dt>
+                <dd className="break-all font-mono text-[11px] text-ink">{data.public_base_url}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">cookie Secure</dt>
+                <dd className="text-ink">{String(data.cookie_secure)}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-28 shrink-0 text-muted">凭证</dt>
+                <dd className="text-ink">
+                  App ID {yes(data.app_id_configured)} · App Key {yes(data.app_key_configured)} ·
+                  Access Secret {yes(data.access_secret_configured)}
+                </dd>
+              </div>
+            </dl>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-muted">最近事件（新→旧）</span>
+                <button type="button" className="btn-outline text-[11px]" onClick={load}>
+                  刷新
+                </button>
+              </div>
+              {data.entries.length === 0 ? (
+                <p className="text-muted">还没有记录。去点一次「使用知乎账号登录」再回来刷新。</p>
+              ) : (
+                <ul className="max-h-52 space-y-1.5 overflow-auto">
+                  {data.entries.map((entry, i) => (
+                    <li key={`${entry.at}-${i}`} className="rounded-lg bg-black/[.03] px-2 py-1.5">
+                      <span className="font-mono text-[10px] text-muted">{entry.at}</span>
+                      <span className="ml-2 font-medium text-ink">{entry.event}</span>
+                      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-[10px] text-muted">
+                        {Object.entries(entry)
+                          .filter(([k]) => k !== 'at' && k !== 'event')
+                          .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+                          .join('  ')}
+                      </pre>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </details>
+  );
+}
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -21,8 +111,6 @@ export default function Login() {
   const oauthError = oauthErrorText(params.get('reason'));
   const oauthFailed = params.get('error') === 'oauth_failed';
 
-  const [judgeUser, setJudgeUser] = useState('');
-  const [judgePass, setJudgePass] = useState('');
   const [devName, setDevName] = useState('');
 
   useEffect(() => {
@@ -73,44 +161,6 @@ export default function Login() {
             </div>
           )}
 
-          {tab === 'judge' && (
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setBusy(true);
-                setError(null);
-                authApi
-                  .judgeLogin(judgeUser, judgePass)
-                  .then((u) => {
-                    setUser(u);
-                    window.location.href = landingPath(u);
-                  })
-                  .catch((err) => setError(errText(err, '登录失败')))
-                  .finally(() => setBusy(false));
-              }}
-            >
-              <input
-                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:border-brand-500"
-                placeholder="评委用户名"
-                value={judgeUser}
-                onChange={(e) => setJudgeUser(e.target.value)}
-                autoComplete="username"
-              />
-              <input
-                className="w-full rounded-xl border border-black/10 px-3 py-2 text-sm outline-none focus:border-brand-500"
-                placeholder="密码"
-                type="password"
-                value={judgePass}
-                onChange={(e) => setJudgePass(e.target.value)}
-                autoComplete="current-password"
-              />
-              <button type="submit" className="btn-primary w-full py-2.5" disabled={busy}>
-                {busy ? '登录中…' : '评委登录'}
-              </button>
-            </form>
-          )}
-
           {tab === 'dev' && devMode && (
             <form
               className="space-y-3"
@@ -158,13 +208,6 @@ export default function Login() {
               <summary className="cursor-pointer list-none hover:text-ink">其他方式</summary>
               <a href="/admin" className="mt-2 block text-brand-600">管理员入口</a>
               <div className="mt-2 flex gap-3">
-                <button
-                  type="button"
-                  className={tab === 'judge' ? 'font-medium text-brand-600' : 'hover:text-ink'}
-                  onClick={() => setTab('judge')}
-                >
-                  评委入口
-                </button>
                 {devMode && (
                   <button
                     type="button"
@@ -178,6 +221,8 @@ export default function Login() {
             </details>
           </div>
         </div>
+
+        {devMode && <OauthDebugPanel />}
       </div>
     </div>
   );

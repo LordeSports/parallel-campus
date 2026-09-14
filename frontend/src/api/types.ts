@@ -59,6 +59,7 @@ export type ApiSettingsRequest = {
   "llm_base_url": string;
   "llm_model_strong": string;
   "llm_model_cheap": string;
+  "llm_enabled"?: boolean;
   "llm_api_key"?: string | null;
   "zhihu_access_secret"?: string | null;
   "zhihu_oauth_app_id"?: string;
@@ -72,6 +73,7 @@ export type ApiSettingsView = {
   "llm_base_url": string;
   "llm_model_strong": string;
   "llm_model_cheap": string;
+  "llm_enabled"?: boolean;
   "llm_api_key_configured": boolean;
   "zhihu_access_secret_configured": boolean;
   "zhihu_oauth_app_id": string;
@@ -281,11 +283,6 @@ export type Interest = {
   "topic": string;
   "weight": number;
   "evidence"?: string[];
-};
-
-export type JudgeLoginRequest = {
-  "username": string;
-  "password": string;
 };
 
 export type LikeResponse = {
@@ -562,8 +559,6 @@ export type User = {
   "zhihu_url_token"?: string | null;
   "zhihu_token_enc"?: string | null;
   "token_expires_at"?: string | null;
-  "is_judge"?: boolean;
-  "judge_username"?: string | null;
   "created_at"?: string;
   "last_login_at"?: string;
 };
@@ -572,8 +567,7 @@ export type UserView = {
   "id": string;
   "display_name": string;
   "avatar_key": string;
-  "auth_kind": "zhihu" | "dev" | "judge";
-  "is_judge"?: boolean;
+  "auth_kind": "zhihu" | "dev";
   "has_persona"?: boolean;
   "character_id"?: string | null;
   "zhihu_url"?: string | null;
@@ -706,15 +700,15 @@ export interface paths {
   "/api/auth/dev-login": {
     post: "dev_login_api_auth_dev_login_post";
   };
-  "/api/auth/judge-login": {
-    post: "judge_login_api_auth_judge_login_post";
-  };
   "/api/auth/logout": {
     post: "logout_api_auth_logout_post";
   };
   "/api/auth/me": {
     delete: "delete_me_api_auth_me_delete";
     get: "me_api_auth_me_get";
+  };
+  "/api/auth/oauth-log": {
+    get: "oauth_debug_log_api_auth_oauth_log_get";
   };
   "/api/auth/zhihu/callback": {
     get: "zhihu_callback_api_auth_zhihu_callback_get";

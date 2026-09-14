@@ -46,13 +46,11 @@ class User(SQLModel, table=True):
     id: str = Field(primary_key=True)
     display_name: str = Field(max_length=24)
     avatar_key: str = "av_01"
-    auth_kind: str = Field(default="dev", max_length=10)  # zhihu | dev | judge
+    auth_kind: str = Field(default="dev", max_length=10)  # zhihu | dev
     zhihu_uid: str | None = Field(default=None, index=True)
     zhihu_url_token: str | None = Field(default=None)
     zhihu_token_enc: bytes | None = Field(default=None)
     token_expires_at: datetime | None = Field(default=None)
-    is_judge: bool = Field(default=False)
-    judge_username: str | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=now_utc)
     last_login_at: datetime = Field(default_factory=now_utc)
 

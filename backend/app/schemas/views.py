@@ -39,8 +39,7 @@ class UserView(View):
     id: str
     display_name: str
     avatar_key: str
-    auth_kind: Literal["zhihu", "dev", "judge"]
-    is_judge: bool = False
+    auth_kind: Literal["zhihu", "dev"]
     has_persona: bool = False
     character_id: str | None = None
     zhihu_url: str | None = None
@@ -48,11 +47,6 @@ class UserView(View):
 
 class DevLoginRequest(View):
     name: str = Field(default="测试用户", min_length=1, max_length=24)
-
-
-class JudgeLoginRequest(View):
-    username: str
-    password: str
 
 
 # ── 人格 ──

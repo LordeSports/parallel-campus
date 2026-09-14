@@ -281,7 +281,16 @@ class LLM:
 
     @property
     def offline(self) -> bool:
-        return not self.api_key
+        """不可用时视为离线：上层（ticker / 决策 / 对话 / 报告）会自动退回日程与规则。"""
+        return (not self.api_key) or (not settings.llm_enabled)
+
+    @property
+    def offline_reason(self) -> str:
+        if not settings.llm_enabled:
+            return "LLM 开关已关闭（管理后台「API 配置」可开启）"
+        if not self.api_key:
+            return "未配置 LLM_API_KEY"
+        return ""
 
     async def _chat(
         self,
@@ -295,7 +304,7 @@ class LLM:
         timeout: float | None,
     ) -> tuple[str, dict[str, Any]]:
         if self.offline:
-            raise LlmError("未配置 LLM_API_KEY，LLM 不可用")
+            raise LlmError(f"{self.offline_reason or 'LLM 不可用'}，已退回规则模式")
         model = self._model(tier)
         payload: dict[str, Any] = {
             "model": model,

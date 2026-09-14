@@ -20,11 +20,22 @@ body,
 
 body {
   margin: 0;
+  /* 末尾的 emoji 字体栈不能省：微软雅黑 / Segoe UI 都不含彩色 emoji 字形，
+     少了它头像与表情在部分 Windows 上会渲染成空框或问号。 */
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
-    'Segoe UI', Roboto, sans-serif;
+    'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols';
   -webkit-font-smoothing: antialiased;
   background: var(--canvas);
   color: #172033;
+}
+
+/* 头像 / 表情：只走 emoji 字体，避免被中文字体的缺字符形吃掉 */
+.emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol',
+    'Android Emoji', 'EmojiSymbols', 'Twemoji Mozilla', sans-serif;
+  font-variant-emoji: emoji;
+  line-height: 1;
 }
 
 /* 细滚动条，避免 LiveFeed 抢视觉 */

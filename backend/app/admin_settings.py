@@ -16,7 +16,7 @@ from .errors import ValidationError
 from .schemas.admin import ApiSettingsRequest, ApiSettingsView
 
 FIELDS = (
-    "llm_base_url", "llm_model_strong", "llm_model_cheap", "llm_api_key",
+    "llm_base_url", "llm_model_strong", "llm_model_cheap", "llm_api_key", "llm_enabled",
     "zhihu_access_secret", "zhihu_oauth_app_id", "zhihu_oauth_app_key",
     "tick_seconds_online", "tick_seconds_idle",
 )
@@ -89,6 +89,7 @@ def public_settings() -> ApiSettingsView:
         llm_base_url=settings.llm_base_url,
         llm_model_strong=settings.llm_model_strong,
         llm_model_cheap=settings.llm_model_cheap,
+        llm_enabled=settings.llm_enabled,
         llm_api_key_configured=bool(settings.llm_api_key),
         zhihu_access_secret_configured=bool(settings.zhihu_access_secret),
         zhihu_oauth_app_id=settings.zhihu_oauth_app_id,

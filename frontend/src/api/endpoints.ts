@@ -50,12 +50,30 @@ export interface MyAvatar extends CharacterDetailView {
 
 // ── 认证 ──
 
+/** OAuth 调试日志（仅 DEV_MODE 下由后端返回） */
+export interface OauthLogEntry {
+  at: string;
+  event: string;
+  [key: string]: unknown;
+}
+
+export interface OauthLogView {
+  dev_mode: boolean;
+  public_base_url: string;
+  redirect_uri: string;
+  cookie_secure: boolean;
+  app_id_configured: boolean;
+  app_key_configured: boolean;
+  access_secret_configured: boolean;
+  entries: OauthLogEntry[];
+}
+
 export const authApi = {
   me: () => http.get<UserView>('/api/auth/me'),
   logout: () => http.post<void>('/api/auth/logout'),
   devLogin: (name: string) => http.post<UserView>('/api/auth/dev-login', { name }),
-  judgeLogin: (username: string, password: string) =>
-    http.post<UserView>('/api/auth/judge-login', { username, password }),
+  /** 仅在 DEV_MODE 下可用；其余情况返回 404 */
+  oauthLog: () => http.get<OauthLogView>('/api/auth/oauth-log'),
   /** 级联删除账号（US-14） */
   destroy: () => http.del<void>('/api/auth/me'),
 };

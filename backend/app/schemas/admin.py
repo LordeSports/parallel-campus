@@ -124,6 +124,7 @@ class ApiSettingsRequest(AdminInput):
     llm_base_url: str = Field(max_length=300)
     llm_model_strong: str = Field(min_length=1, max_length=80)
     llm_model_cheap: str = Field(min_length=1, max_length=80)
+    llm_enabled: bool = True
     llm_api_key: SecretStr | None = Field(default=None, max_length=4096)
     zhihu_access_secret: SecretStr | None = Field(default=None, max_length=4096)
     zhihu_oauth_app_id: str = Field(default="", max_length=200)
@@ -154,6 +155,7 @@ class ApiSettingsView(BaseModel):
     llm_base_url: str
     llm_model_strong: str
     llm_model_cheap: str
+    llm_enabled: bool = True
     llm_api_key_configured: bool
     zhihu_access_secret_configured: bool
     zhihu_oauth_app_id: str

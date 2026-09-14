@@ -7,6 +7,7 @@ import { Field, Section, fieldClass, type AdminAction } from './AdminForms';
 export default function AdminSettings({ settings, busy, run }: { settings: ApiSettingsView; busy: boolean; run: AdminAction }) {
   const [form, setForm] = useState<ApiSettingsRequest>({ llm_base_url: settings.llm_base_url,
     llm_model_strong: settings.llm_model_strong, llm_model_cheap: settings.llm_model_cheap,
+    llm_enabled: settings.llm_enabled,
     zhihu_oauth_app_id: settings.zhihu_oauth_app_id, llm_api_key: '', zhihu_access_secret: '', zhihu_oauth_app_key: '' });
   const update = (key: keyof ApiSettingsRequest, value: string | boolean) => setForm(previous => ({ ...previous, [key]: value }));
   const secrets = [
@@ -19,6 +20,21 @@ export default function AdminSettings({ settings, busy, run }: { settings: ApiSe
     <form className="space-y-5" onSubmit={e => { e.preventDefault(); void run(() => adminApi.saveSettings(form), 'API 配置已加密保存').then(ok => {
       if (ok) setForm(previous => ({ ...previous, llm_api_key: '', zhihu_access_secret: '', zhihu_oauth_app_key: '', clear_llm_api_key: false, clear_zhihu_access_secret: false, clear_zhihu_oauth_app_key: false }));
     }); }}>
+      <label className="flex cursor-pointer items-start justify-between gap-4 rounded-2xl bg-black/[.025] p-4">
+        <span>
+          <span className="block text-sm font-medium text-ink">启用 LLM</span>
+          <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+            总开关。关闭后完全不调用模型：角色退回日程与规则行动，对话、反思与匹配报告跳过。
+            省额度或离线演示时用。
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          className="mt-0.5 h-5 w-5 shrink-0 accent-brand-500"
+          checked={form.llm_enabled ?? true}
+          onChange={e => update('llm_enabled', e.target.checked)}
+        />
+      </label>
       <Field label="LLM Base URL" hint="更换地址时须重新输入 Key，避免把已有 Key 发送到其他服务。"><input className={fieldClass} type="url" required maxLength={300} value={form.llm_base_url} onChange={e => update('llm_base_url', e.target.value)} /></Field>
       <div className="grid gap-4 sm:grid-cols-2"><Field label="高质量模型"><input className={fieldClass} required maxLength={80} value={form.llm_model_strong} onChange={e => update('llm_model_strong', e.target.value)} /></Field>
         <Field label="经济模型"><input className={fieldClass} required maxLength={80} value={form.llm_model_cheap} onChange={e => update('llm_model_cheap', e.target.value)} /></Field></div>

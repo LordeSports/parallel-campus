@@ -169,21 +169,6 @@ def get_avatar(key: str) -> dict[str, Any]:
     return {"key": key or "av_01", "bg": "#e5e7eb", "emoji": "🙂"}
 
 
-# ─────────────────────────── 评委 ───────────────────────────
-
-
-@lru_cache
-def judges() -> tuple[dict[str, Any], ...]:
-    return tuple(_read_json("judges.json") or [])
-
-
-def judge_by_username(username: str) -> dict[str, Any] | None:
-    for j in judges():
-        if j.get("username") == username:
-            return j
-    return None
-
-
 # ─────────────────────────── 兴趣词表 ───────────────────────────
 
 
@@ -254,13 +239,13 @@ def warmup() -> tuple[dict[str, Any], ...]:
 
 
 def reload_all() -> None:
-    for fn in (locations, npcs, calendar, avatars, judges, warmup):
+    for fn in (locations, npcs, calendar, avatars, warmup):
         fn.cache_clear()
 
 
 __all__ = [
     "locations", "location_map", "get_location", "npcs", "npc_by_id", "system_character",
     "calendar", "weekday_courses", "events_for_day", "is_weekend", "default_schedule",
-    "avatars", "avatar_keys", "get_avatar", "judges", "judge_by_username",
+    "avatars", "avatar_keys", "get_avatar",
     "INTEREST_VOCAB", "normalize_topic", "normalize_tags", "warmup", "reload_all",
 ]

@@ -10,8 +10,6 @@ from .loader import (  # noqa: F401
     get_avatar,
     get_location,
     is_weekend,
-    judge_by_username,
-    judges,
     location_map,
     locations,
     normalize_tags,

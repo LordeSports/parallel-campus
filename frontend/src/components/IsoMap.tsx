@@ -10,9 +10,10 @@
  * 编辑相关交互只在传入 `editable` 时挂载。
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CampusMapView, CharacterSummaryView, MapObjectView } from '../api/types';
+import { avatarMeta } from '../avatar';
 import { moodEmoji } from '../store/world';
 import {
   BUILDING_STYLE,
@@ -360,7 +361,11 @@ function PropShape({ o, rows }: { o: MapObjectView; rows: number }) {
 
 function Character({ c, x, y, onPick }: { c: CharacterSummaryView; x: number; y: number; onPick?: (id: string) => void }) {
   const ring = c.is_me ? PROP_COLORS.meRing : c.kind === 'player' ? PROP_COLORS.playerRing : PROP_COLORS.avatarRing;
-  const face = c.kind === 'system' ? '📢' : moodEmoji(c.mood?.valence, c.mood?.arousal);
+  // 头像走 av_XX 体系（未知 key 会稳定兜底），底色保证缺 emoji 字体时也能区分角色
+  const meta = avatarMeta(c.avatar_key, c.id);
+  const face = c.kind === 'system' ? '📣' : meta.emoji;
+  // 角标只放情绪脸（arousal 传 null → 不带 ⚡，尺寸才放得下）
+  const moodFace = moodEmoji(c.mood?.valence, null);
   return (
     <g
       transform={`translate(${x} ${y})`}
@@ -370,16 +375,21 @@ function Character({ c, x, y, onPick }: { c: CharacterSummaryView; x: number; y:
     >
       <ellipse cx="0" cy="3" rx="11" ry="4" fill="#64748b" opacity=".2" />
       <rect x="-5.5" y="-14" width="11" height="15" rx="5" fill={ring} opacity=".85" />
-      <circle cx="0" cy="-20" r="9.5" fill="#fff" stroke={ring} strokeWidth={c.is_me ? 2.6 : 1.8} />
-      <text textAnchor="middle" y="-16" fontSize="9" style={{ pointerEvents: 'none' }}>
+      <circle cx="0" cy="-20" r="9.5" fill={meta.bg} stroke={ring} strokeWidth={c.is_me ? 2.6 : 1.8} />
+      <text textAnchor="middle" y="-16.5" fontSize="9.5" className="emoji" style={{ pointerEvents: 'none' }}>
         {face}
+      </text>
+      {/* 心情角标 */}
+      <circle cx="8.5" cy="-28" r="5.2" fill="#fff" stroke="#e5e7eb" strokeWidth="0.8" />
+      <text textAnchor="middle" x="8.5" y="-25" fontSize="6.5" className="emoji" style={{ pointerEvents: 'none' }}>
+        {moodFace}
       </text>
       <text textAnchor="middle" y="14" fontSize="9.5" fill="#374151" style={{ pointerEvents: 'none' }}>
         {c.name.length > 5 ? `${c.name.slice(0, 5)}…` : c.name}
         {c.is_me ? '·我' : ''}
       </text>
       {c.is_asleep && (
-        <text x="8" y="-24" fontSize="9" style={{ pointerEvents: 'none' }}>
+        <text x="8" y="-30" fontSize="9" className="emoji" style={{ pointerEvents: 'none' }}>
           💤
         </text>
       )}
@@ -428,10 +438,24 @@ export default function IsoMap({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [drag, setDrag] = useState<{ id: string; grabTx: number; grabTy: number; objTx: number; objTy: number } | null>(null);
   const [panning, setPanning] = useState<{ clientX: number; clientY: number; panX: number; panY: number } | null>(null);
+  /** 拖动超过阈值后抑制紧随的 click，避免平移地图时误点角色 */
+  const suppressClick = useRef(false);
 
-  const zoom = view?.zoom ?? 1;
-  const panX = view?.panX ?? 0;
-  const panY = view?.panY ?? 0;
+  // 视口：编辑器传入 view/onViewChange（受控）；玩家端只读时组件自管，
+  // 这样「主显示区域无法放大」的问题在两种模式下都解决。
+  const [innerView, setInnerView] = useState<Viewport>({ zoom: 1, panX: 0, panY: 0 });
+  const controlled = Boolean(view && onViewChange);
+  const vp: Viewport = controlled ? (view as Viewport) : innerView;
+  const setVp = useCallback(
+    (next: Viewport) => {
+      if (controlled) onViewChange?.(next);
+      else setInnerView(next);
+    },
+    [controlled, onViewChange],
+  );
+  const zoom = vp.zoom;
+  const panX = vp.panX;
+  const panY = vp.panY;
 
   /** client 坐标 → viewBox 坐标 → 世界坐标（未缩放） */
   const toWorld = useCallback((clientX: number, clientY: number): Pt | null => {
@@ -446,16 +470,23 @@ export default function IsoMap({
     return { x: (vb.x - panX) / zoom, y: (vb.y - panY) / zoom };
   }, [panX, panY, zoom]);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (!editable || !onViewChange || !view) return;
-    const world = toWorld(e.clientX, e.clientY);
-    if (!world) return;
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    const nz = Math.max(0.35, Math.min(3.5, zoom * factor));
-    // 保持鼠标下的世界点不动
-    const screen = { x: world.x * zoom + panX, y: world.y * zoom + panY };
-    onViewChange({ zoom: nz, panX: screen.x - world.x * nz, panY: screen.y - world.y * nz });
-  }, [editable, onViewChange, panX, panY, toWorld, view, zoom]);
+  /** 滚轮缩放：必须用原生监听才能 `preventDefault`（React 的 onWheel 是 passive）。 */
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const world = toWorld(e.clientX, e.clientY);
+      if (!world) return;
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      const nz = Math.max(0.3, Math.min(4, zoom * factor));
+      // 以鼠标所在的世界点为中心缩放
+      const screen = { x: world.x * zoom + panX, y: world.y * zoom + panY };
+      setVp({ zoom: nz, panX: screen.x - world.x * nz, panY: screen.y - world.y * nz });
+    };
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, [panX, panY, setVp, toWorld, zoom]);
 
   const onObjectPointerDown = (e: React.PointerEvent, o: MapObjectView) => {
     if (!editable) return;
@@ -479,12 +510,12 @@ export default function IsoMap({
       onMove(drag.id, nx, ny);
       return;
     }
-    if (panning && onViewChange) {
-      onViewChange({
-        zoom,
-        panX: panning.panX + (e.clientX - panning.clientX),
-        panY: panning.panY + (e.clientY - panning.clientY),
-      });
+    if (panning) {
+      const dx = e.clientX - panning.clientX;
+      const dy = e.clientY - panning.clientY;
+      if (!suppressClick.current && Math.hypot(dx, dy) < 4) return; // 阈值内仍算点击
+      suppressClick.current = true;
+      setVp({ zoom, panX: panning.panX + dx, panY: panning.panY + dy });
     }
   };
 
@@ -497,16 +528,19 @@ export default function IsoMap({
   };
 
   const onSvgPointerDown = (e: React.PointerEvent) => {
-    if (!editable) return;
+    suppressClick.current = false;
     const world = toWorld(e.clientX, e.clientY);
-    if (placing && world && onPlace) {
-      const t = toTile(world.x, world.y, rows);
-      onPlace(Math.round(t.tx * 2) / 2, Math.round(t.ty * 2) / 2);
-      return;
+    if (editable) {
+      if (placing && world && onPlace) {
+        const t = toTile(world.x, world.y, rows);
+        onPlace(Math.round(t.tx * 2) / 2, Math.round(t.ty * 2) / 2);
+        return;
+      }
+      // 空白处：取消选中
+      onSelect?.(null);
     }
-    // 空白处：取消选中 + 开始平移
-    onSelect?.(null);
-    if (onViewChange) setPanning({ clientX: e.clientX, clientY: e.clientY, panX, panY });
+    // 两种模式都允许拖动平移（只读端也要能挪动查看）
+    setPanning({ clientX: e.clientX, clientY: e.clientY, panX, panY });
   };
 
   /** 渲染顺序：先 layer 再 depth（等距下靠下/靠右的压在上层） */
@@ -557,18 +591,55 @@ export default function IsoMap({
   }
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${extent.width} ${extent.height}`}
-      preserveAspectRatio="xMidYMid meet"
-      className={`h-full w-full ${editable ? 'cursor-grab' : ''} ${className ?? ''}`}
-      onWheel={handleWheel}
-      onPointerDown={onSvgPointerDown}
-      onPointerMove={onSvgPointerMove}
-      onPointerUp={endDrag}
-      onPointerLeave={endDrag}
-      style={{ touchAction: 'none' }}
-    >
+    <div className={`relative h-full w-full ${className ?? ''}`}>
+      {/* 视图控制浮层：缩放 + 重置（原先主显示区无法放大） */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-xl bg-white/85 px-1.5 py-1 shadow-sm backdrop-blur">
+        <button
+          type="button"
+          className="h-7 w-7 rounded-lg text-sm text-ink hover:bg-black/5"
+          title="缩小"
+          onClick={() => setVp({ ...vp, zoom: Math.max(0.3, zoom / 1.2) })}
+        >
+          −
+        </button>
+        <span className="min-w-[42px] text-center text-[11px] tabular-nums text-muted">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          className="h-7 w-7 rounded-lg text-sm text-ink hover:bg-black/5"
+          title="放大"
+          onClick={() => setVp({ ...vp, zoom: Math.min(4, zoom * 1.2) })}
+        >
+          ＋
+        </button>
+        <button
+          type="button"
+          className="ml-0.5 rounded-lg px-2 py-1 text-[11px] text-muted hover:bg-black/5"
+          title="适应视图"
+          onClick={() => setVp({ zoom: 1, panX: 0, panY: 0 })}
+        >
+          重置
+        </button>
+      </div>
+
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${extent.width} ${extent.height}`}
+        preserveAspectRatio="xMidYMid meet"
+        className={`h-full w-full ${editable ? 'cursor-grab' : ''}`}
+        onPointerDown={onSvgPointerDown}
+        onPointerMove={onSvgPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        onClickCapture={(e) => {
+          if (suppressClick.current) {
+            e.stopPropagation();
+            suppressClick.current = false;
+          }
+        }}
+        style={{ touchAction: 'none' }}
+      >
       <Defs />
 
       {/* 地面底色 */}
@@ -626,6 +697,7 @@ export default function IsoMap({
           点击地图空白处放置「{placing.variant}」· Esc 取消
         </text>
       )}
-    </svg>
+      </svg>
+    </div>
   );
 }

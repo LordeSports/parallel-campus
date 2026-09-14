@@ -36,7 +36,6 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = ""
     admin_settings_file: str = ""
-    judge_accounts: str = "judge1:changeme1,judge2:changeme2"
 
     # ── 存储 ──
     database_url: str = "sqlite+aiosqlite:///./data/pc.db"
@@ -50,6 +49,9 @@ class Settings(BaseSettings):
     zhihu_open_base: str = "https://openapi.zhihu.com"
 
     # ── LLM ──
+    # `llm_enabled=False` 时完全不调用 LLM：角色退回日程/规则行动，报告与对话跳过。
+    # 可在管理后台「API 配置」里随时切换。
+    llm_enabled: bool = True
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_api_key: str = ""
     llm_model_strong: str = "deepseek-chat"
@@ -99,18 +101,6 @@ class Settings(BaseSettings):
     def zhihu_enabled(self) -> bool:
         """无凭证或 DEV_MODE 时使用 MockZhihuClient。"""
         return bool(self.zhihu_access_secret) and not self.dev_mode
-
-    @property
-    def judge_account_map(self) -> dict[str, str]:
-        out: dict[str, str] = {}
-        for part in self.judge_accounts.split(","):
-            part = part.strip()
-            if not part or ":" not in part:
-                continue
-            user, _, pw = part.partition(":")
-            if user and pw:
-                out[user.strip()] = pw.strip()
-        return out
 
     @property
     def cookie_secure(self) -> bool:

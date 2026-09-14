@@ -10,9 +10,10 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import col, select
 
 from ..config import settings
-from ..errors import Forbidden, NotFound, Unauthorized
+from ..errors import NotFound, Unauthorized
 from ..models import Character, Persona, User, new_id, now_utc
-from ..schemas.views import DevLoginRequest, JudgeLoginRequest, UserView
+from ..oauth_log import oauth_log
+from ..schemas.views import DevLoginRequest, UserView
 from ..security import (
     OAUTH_STATE_COOKIE,
     OAUTH_STATE_MAX_AGE,
@@ -56,17 +57,56 @@ async def _user_view(session: SessionDep, user: User) -> UserView:
     )
     return UserView(
         id=user.id, display_name=user.display_name, avatar_key=user.avatar_key,
-        auth_kind=user.auth_kind, is_judge=user.is_judge,
+        auth_kind=user.auth_kind,
         has_persona=persona is not None,
         character_id=char.id if char else None,
         zhihu_url=zhihu_url,
     )
 
 
+@router.get("/oauth-log")
+async def oauth_debug_log() -> dict[str, object]:
+    """仅 DEV_MODE：返回最近的 OAuth 调试日志（登录页会展示，便于自查）。
+    顺带回显生效中的回调配置——「登录状态已过期」九成是这里的 host/协议对不上。
+    """
+    if not settings.dev_mode:
+        raise NotFound("OAuth 调试日志仅在 DEV_MODE 下可用")
+    return {
+        "dev_mode": True,
+        "public_base_url": settings.public_base_url,
+        "redirect_uri": settings.zhihu_oauth_redirect_uri,
+        "cookie_secure": settings.cookie_secure,
+        "app_id_configured": bool(settings.zhihu_oauth_app_id),
+        "app_key_configured": bool(settings.zhihu_oauth_app_key),
+        "access_secret_configured": bool(settings.zhihu_access_secret),
+        "entries": oauth_log.recent(40),
+    }
+
+
 @router.get("/zhihu/login", include_in_schema=True)
-async def zhihu_login() -> RedirectResponse:
+async def zhihu_login(request: Request) -> RedirectResponse:
     """302 → openapi.zhihu.com/authorize；Set-Cookie pc_oauth_state（10min）。"""
+    # 凭证不全就别带着空 app_id 跳知乎（那边不会发授权码，回来还会是 missing_code）
+    if not settings.zhihu_oauth_app_id or not settings.zhihu_oauth_app_key:
+        oauth_log.record(
+            "authorize_blocked",
+            reason="未配置 ZHIHU_OAUTH_APP_ID / ZHIHU_OAUTH_APP_KEY",
+            app_id="有" if settings.zhihu_oauth_app_id else "无",
+            app_key="有" if settings.zhihu_oauth_app_key else "无",
+        )
+        log.warning("拒绝发起知乎授权：OAuth 凭证未配置完整")
+        return RedirectResponse(
+            "/login?error=oauth_failed&reason=oauth_not_configured", status_code=302
+        )
+
     state = sign_oauth_state()
+    oauth_log.record(
+        "authorize",
+        redirect_uri=settings.zhihu_oauth_redirect_uri,
+        cookie_secure=settings.cookie_secure,
+        host=request.headers.get("host"),
+        referer=request.headers.get("referer"),
+    )
     resp = RedirectResponse(url=authorize_url(state), status_code=302)
     resp.set_cookie(
         OAUTH_STATE_COOKIE, state, max_age=OAUTH_STATE_MAX_AGE,
@@ -87,8 +127,30 @@ async def zhihu_callback(
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE)
 
     if not authorization_code and not code:
+        oauth_log.record(
+            "callback_missing_code",
+            query=dict(request.query_params),
+            host=request.headers.get("host"),
+        )
+        log.warning("OAuth 回调缺少授权码：query=%s", dict(request.query_params))
         return RedirectResponse("/login?error=oauth_failed&reason=missing_code", status_code=302)
     if not verify_oauth_state(cookie_state, state):
+        why = (
+            "没有收到 state cookie（回调 host 与发起 host 不一致 / Secure cookie 走了 http / 浏览器拦截）"
+            if not cookie_state
+            else "回调没带 state 参数"
+            if not state
+            else "state 不匹配或超过 10 分钟（SESSION_SECRET 变更也会导致签名失效）"
+        )
+        oauth_log.record(
+            "callback_state_mismatch",
+            why=why,
+            cookie_state="有" if cookie_state else "无",
+            query_state="有" if state else "无",
+            host=request.headers.get("host"),
+            referer=request.headers.get("referer"),
+        )
+        log.warning("OAuth state 校验失败：%s | cookie_state=%s", why, "有" if cookie_state else "无")
         return RedirectResponse("/login?error=oauth_failed&reason=state_mismatch", status_code=302)
 
     the_code = authorization_code or code or ""
@@ -97,6 +159,13 @@ async def zhihu_callback(
     except Exception as exc:
         log.warning("token 交换失败: %s", exc)
         reason = "zhihu_unavailable" if "unavailable" in str(exc).lower() else "token_exchange_failed"
+        oauth_log.record(
+            "token_exchange_failed",
+            reason=reason,
+            detail=str(exc)[:200],
+            app_id="有" if settings.zhihu_oauth_app_id else "无",
+            app_key="有" if settings.zhihu_oauth_app_key else "无",
+        )
         return RedirectResponse(f"/login?error=oauth_failed&reason={reason}", status_code=302)
 
     # 用户标识复用
@@ -160,39 +229,6 @@ async def dev_login(payload: DevLoginRequest, session: SessionDep, response: Res
 
     _set_session(response, user.id)
     return await _user_view(session, user)
-
-
-@router.post("/judge-login", response_model=UserView)
-async def judge_login(payload: JudgeLoginRequest, session: SessionDep, response: Response) -> UserView:
-    """评委账号（env JUDGE_ACCOUNTS）。"""
-    accounts = settings.judge_account_map
-    expected = accounts.get(payload.username)
-    if not expected or expected != payload.password:
-        raise Unauthorized("用户名或密码不正确")
-
-    user = (
-        await session.exec(select(User).where(User.judge_username == payload.username))
-    ).first()
-    if user is None:
-        # 启动预置失败时兜底创建
-        from ..seed_runtime import _ensure_judges
-
-        from ..sim.world import get_world
-
-        # 预置使用独立连接；先释放当前事务，避免与自己的写锁互等。
-        await session.rollback()
-        await _ensure_judges(await get_world())
-        user = (
-            await session.exec(select(User).where(User.judge_username == payload.username))
-        ).first()
-    if user is None:
-        raise Forbidden("评委账号未预置，请检查 judges.json")
-
-    user.last_login_at = now_utc()
-    session.add(user)
-    await session.commit()
-
-    _set_session(response, user.id)
     return await _user_view(session, user)
 
 
