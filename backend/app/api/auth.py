@@ -19,6 +19,7 @@ from ..security import (
     OAUTH_STATE_MAX_AGE,
     SESSION_COOKIE,
     SESSION_MAX_AGE,
+    diagnose_oauth_state,
     encrypt_token,
     sign_oauth_state,
     sign_session,
@@ -135,22 +136,33 @@ async def zhihu_callback(
         log.warning("OAuth 回调缺少授权码：query=%s", dict(request.query_params))
         return RedirectResponse("/login?error=oauth_failed&reason=missing_code", status_code=302)
     if not verify_oauth_state(cookie_state, state):
-        why = (
-            "没有收到 state cookie（回调 host 与发起 host 不一致 / Secure cookie 走了 http / 浏览器拦截）"
-            if not cookie_state
-            else "回调没带 state 参数"
-            if not state
-            else "state 不匹配或超过 10 分钟（SESSION_SECRET 变更也会导致签名失效）"
-        )
+        diag = diagnose_oauth_state(cookie_state, state)
+        # 签名验不过但 cookie 明明很新鲜 → 签发与校验用的不是同一个 SESSION_SECRET
+        # （多实例/多 worker 各自随机生成，或容器混跑新旧两份配置）。
+        why = {
+            "no_cookie": "没有收到 state cookie（回调 host 与发起 host 不一致 / Secure cookie 走了 http / 浏览器拦截）",
+            "no_query_state": "回调没带 state 参数",
+            "cookie_signature_invalid_or_expired": "state cookie 签名无效或已过期（超过 10 分钟，或 SESSION_SECRET 被改过）",
+            "cookie_query_mismatch": "cookie 与回调 state 值不一致（可能是同一浏览器提交了两次登录，或回显被改写）",
+        }.get(diag["reason"], "state 校验失败")
         oauth_log.record(
             "callback_state_mismatch",
             why=why,
+            reason=diag["reason"],
             cookie_state="有" if cookie_state else "无",
             query_state="有" if state else "无",
+            cookie_signature_ok=diag["cookie_signature_ok"],
+            cookie_age_seconds=diag["cookie_age_seconds"],
+            same_raw=diag["same_raw"],
             host=request.headers.get("host"),
             referer=request.headers.get("referer"),
         )
-        log.warning("OAuth state 校验失败：%s | cookie_state=%s", why, "有" if cookie_state else "无")
+        log.warning(
+            "OAuth state 校验失败：%s | reason=%s cookie=%s query=%s 签名=%s 已签发=%ss",
+            why, diag["reason"], "有" if cookie_state else "无",
+            "有" if state else "无", "ok" if diag["cookie_signature_ok"] else "fail",
+            diag["cookie_age_seconds"],
+        )
         return RedirectResponse("/login?error=oauth_failed&reason=state_mismatch", status_code=302)
 
     the_code = authorization_code or code or ""

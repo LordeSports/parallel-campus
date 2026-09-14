@@ -294,16 +294,60 @@ def test_session_tampered_returns_none():
 
 
 def test_oauth_state_roundtrip():
+    """真实流程：cookie 与发给知乎的 state 是**同一个签名串**，知乎原样回显。
+
+    回归点：曾有一段只把 cookie 内层 nonce 与 query（完整签名串）比对，
+    导致线上永远 state_mismatch——所以这里必须断言 `verify(cookie, cookie)`。
+    """
+    from app.security import _serializer, OAUTH_STATE_SALT, sign_oauth_state, verify_oauth_state
+
+    cookie = sign_oauth_state()
+    payload = _serializer(OAUTH_STATE_SALT).loads(cookie)
+
+    # ① 真实流程：完整签名串原样回显
+    assert verify_oauth_state(cookie, cookie) is True
+    # ② 兼容裸 nonce
+    assert verify_oauth_state(cookie, payload["s"]) is True
+    # ③ 另一份合法签名串（换了登录，nonce 不同）应拒绝
+    assert verify_oauth_state(cookie, sign_oauth_state()) is False
+    # ④ 篡改 / 缺失
+    assert verify_oauth_state(cookie + "xx", cookie + "xx") is False
+    assert verify_oauth_state(cookie, "wrong") is False
+    assert verify_oauth_state(None, "x") is False
+    assert verify_oauth_state(cookie, None) is False
+
+
+def test_oauth_state_expires(monkeypatch):
+    """超过 10 分钟的 state 必须失效（无论 query 是否原样回显）。"""
+    import time
+
     from app.security import sign_oauth_state, verify_oauth_state
 
     cookie = sign_oauth_state()
-    # verify_oauth_state(cookie_value, query_state)：query_state 必须与 cookie 内一致
-    from app.security import _serializer, OAUTH_STATE_SALT
+    real_time = time.time
+    monkeypatch.setattr(time, "time", lambda: real_time() + 601)
+    assert verify_oauth_state(cookie, cookie) is False
 
-    payload = _serializer(OAUTH_STATE_SALT).loads(cookie)
-    assert verify_oauth_state(cookie, payload["s"]) is True
-    assert verify_oauth_state(cookie, "wrong") is False
-    assert verify_oauth_state(None, "x") is False
+
+def test_diagnose_oauth_state_reasons():
+    """诊断结论要能区分「没带 cookie」「签名不过」「两边不一致」。"""
+    from app.security import diagnose_oauth_state, sign_oauth_state
+
+    assert diagnose_oauth_state(None, "x")["reason"] == "no_cookie"
+    assert diagnose_oauth_state("x", None)["reason"] == "no_query_state"
+    assert diagnose_oauth_state("x", "x")["reason"] == "cookie_signature_invalid_or_expired"
+
+    cookie = sign_oauth_state()
+    ok = diagnose_oauth_state(cookie, cookie)
+    assert ok["reason"] == "ok" and ok["ok"] is True
+    assert ok["cookie_signature_ok"] is True and ok["same_raw"] is True
+    assert 0 <= ok["cookie_age_seconds"] < 10
+    assert ok["state_max_age_seconds"] == 600
+
+    bad = diagnose_oauth_state(cookie, sign_oauth_state())
+    assert bad["reason"] == "cookie_query_mismatch"
+    assert bad["cookie_signature_ok"] is True
+    assert bad["same_raw"] is False
 
 
 def test_admin_token_compare():
@@ -319,3 +363,96 @@ def test_redact_hides_secret():
 
     out = redact("Bearer sk-abcdefghijklmnop")
     assert "abcdefghijklmnop" not in out
+
+
+# ─────────────── OAuth 回调端到端（回归：state 比较对象写错） ───────────────
+
+
+async def test_zhihu_callback_accepts_echoed_state(engine, monkeypatch):
+    """登录 → 知乎原样回显 state → 回调必须通过 state 校验。
+
+    这条才是能抓到 bug 的测试：旧的单测直接把 cookie 内层 nonce 当 query 喂进去，
+    掩盖了「真实流程回显的是完整签名串」这一事实，于是线上恒定 state_mismatch。
+    """
+    from urllib.parse import parse_qs, urlparse
+
+    import httpx
+
+    from app.api import auth as auth_mod
+    from app.config import settings
+    from app.main import app
+
+    monkeypatch.setattr(settings, "zhihu_oauth_app_id", "app-123")
+    monkeypatch.setattr(settings, "zhihu_oauth_app_key", "key-456")
+    monkeypatch.setattr(settings, "public_base_url", "https://campus.example.test")
+    monkeypatch.setattr(
+        settings,
+        "zhihu_oauth_redirect_uri",
+        "https://campus.example.test/api/auth/zhihu/callback",
+    )
+
+    async def _offline(_code: str):  # noqa: ANN202
+        raise RuntimeError("offline-test")  # 测试不联网 → 停在换 token
+
+    monkeypatch.setattr(auth_mod, "exchange_code", _offline)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="https://campus.example.test"
+    ) as client:
+        resp = await client.get("/api/auth/zhihu/login", follow_redirects=False)
+        assert resp.status_code == 302
+        state = parse_qs(urlparse(resp.headers["location"]).query)["state"][0]
+        # 发给知乎的 state 与 cookie 里的是同一份
+        assert client.cookies.get("pc_oauth_state") == state
+
+        cb = await client.get(
+            f"/api/auth/zhihu/callback?code=fake-code&state={state}",
+            follow_redirects=False,
+        )
+        assert cb.status_code == 302
+        location = cb.headers["location"]
+        assert "reason=state_mismatch" not in location, location
+        assert "reason=token_exchange_failed" in location, location
+
+
+async def test_zhihu_callback_rejects_forged_state(engine, monkeypatch):
+    """伪造 state（与 cookie 不同）必须被拒，且诊断原因准确。"""
+    from app.api import auth as auth_mod
+    from app.config import settings
+    from app.main import app
+    from app.oauth_log import oauth_log
+    from app.security import sign_oauth_state
+
+    monkeypatch.setattr(settings, "zhihu_oauth_app_id", "app-123")
+    monkeypatch.setattr(settings, "zhihu_oauth_app_key", "key-456")
+    monkeypatch.setattr(settings, "public_base_url", "https://campus.example.test")
+    monkeypatch.setattr(
+        settings,
+        "zhihu_oauth_redirect_uri",
+        "https://campus.example.test/api/auth/zhihu/callback",
+    )
+    oauth_log.clear()
+
+    import httpx
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="https://campus.example.test"
+    ) as client:
+        resp = await client.get("/api/auth/zhihu/login", follow_redirects=False)
+        assert resp.status_code == 302
+        # 客户端已持有合法 cookie，但 query 里塞一份攻击者自签的 state
+        forged = sign_oauth_state()
+        cb = await client.get(
+            f"/api/auth/zhihu/callback?code=fake-code&state={forged}",
+            follow_redirects=False,
+        )
+        assert "reason=state_mismatch" in cb.headers["location"]
+
+    entries = oauth_log.recent()
+    mismatch = [e for e in entries if e.get("event") == "callback_state_mismatch"]
+    assert mismatch, entries
+    latest = mismatch[0]  # recent() 最新在前
+    assert latest["reason"] == "cookie_query_mismatch"
+    assert latest["cookie_signature_ok"] is True

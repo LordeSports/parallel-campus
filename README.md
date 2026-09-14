@@ -158,6 +158,37 @@ python scripts/dump_openapi.py && python scripts/gen_ts_types.py
 `CampusLocation`（地点语义、容量、氛围）与地图对象（视觉层）**解耦**：建筑通过 `location_id`
 回指地点，用来把角色画在对应建筑前；管理员重画地图不影响模拟逻辑。
 
+### 知乎 OAuth 登录：流程与排查
+
+```
+GET /api/auth/zhihu/login
+  ├─ state = sign_oauth_state()            # 签名串，含随机 nonce + 时间戳
+  ├─ Set-Cookie pc_oauth_state = state     # ← 同一个串
+  └─ 302 openapi.zhihu.com/authorize?…&state=state   # ← 同一个串，知乎原样回显
+GET /api/auth/zhihu/callback?code=…&state=…
+  └─ verify_oauth_state(cookie, query)     # 双提交校验（CSRF）
+```
+
+**关键点：cookie 与发给知乎的 `state` 是同一个签名串**，回调时知乎把它原样带回来，
+所以正常情况下 `query_state == cookie_value`。校验必须拿**完整串**比对——
+历史上这里错拿 cookie 内层 nonce 去比，导致线上恒定 `state_mismatch`
+（cookie 有、query 有、state 也刚签发，却永远不通过）。已修复，并有端到端回归测试覆盖。
+
+**失败诊断**（`DEV_MODE` 下看登录页「OAuth 调试日志」，或
+`docker compose logs app | grep -i oauth`）。日志里的 `reason` 直接指明环节：
+
+| `reason` | 含义 | 修法 |
+|---|---|---|
+| `no_cookie` | cookie 没回到后端 | 让浏览器地址、`PUBLIC_BASE_URL`、`ZHIHU_OAUTH_REDIRECT_URI`、知乎后台登记地址**四处 host/协议完全一致**；`cookie_secure=true` 时链路上不能有 http 跳 |
+| `no_query_state` | 回调没带 state | 知乎后台的回调地址填错（应填 `…/api/auth/zhihu/callback`） |
+| `cookie_signature_invalid_or_expired` | 签名验不过或超 10 分钟 | 看日志里的 `cookie_age_seconds`：① 很小却验不过 → 签发与校验用的不是同一个 `SESSION_SECRET`（多实例/多 worker 各自随机生成）② 很大 → 在授权页停留过久 |
+| `cookie_query_mismatch` | 两边值不同 | 同一浏览器提交了两次登录（旧 cookie 被新的覆盖），重新走一遍即可 |
+
+`reason=missing_code`（知乎没返回授权码）则要看 `app_id` 是否是知乎分配的**真实 App ID**——
+拿 `app_id=666` 这类占位值会被知乎直接打发回来。
+另外凭证需要的是 **App ID + App Key**；`ZHIHU_ACCESS_SECRET` 是调开放接口用的，
+**不能**用来换登录 token。拿不到 App Key 就用登录页的「开发登录」。
+
 ---
 
 ## 四、环境变量
