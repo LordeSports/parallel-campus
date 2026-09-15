@@ -135,6 +135,23 @@ class PersonaFile(StrictModel):
         return [i.topic for i in self.interests[:n]]
 
 
+class InterviewTurn(StrictModel):
+    """对话式画像访谈：LLM 每轮的输出。
+
+    - `reply` 是对上一段回答的回应（展示给用户）
+    - `question` 是下一个问题；`done=true` 时应为空
+    - `draft` 每轮都带全量画像（前端实时可见画像在"长出来"）
+    - `missing` 列出还缺什么，用于展示"还想知道"
+    """
+
+    reply: str = Field(default="", max_length=240)
+    question: str = Field(default="", max_length=160)
+    done: bool = False
+    progress: int = Field(default=40, ge=0, le=100)
+    missing: list[str] = Field(default_factory=list)
+    draft: PersonaFile | None = None
+
+
 # ─────────────────────────── 日程 ───────────────────────────
 
 

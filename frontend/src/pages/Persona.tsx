@@ -7,6 +7,7 @@ import { avatarApi, personaApi } from '../api/endpoints';
 import type { CharacterDetailView, PersonaFile } from '../api/types';
 import DeployForm from '../components/DeployForm';
 import PersonaEditor from '../components/PersonaEditor';
+import PersonaInterview from '../components/PersonaInterview';
 import Toast from '../components/Toast';
 import { useSession } from '../store/session';
 
@@ -17,7 +18,30 @@ const STAGES = [
   '正在写画像…',
 ];
 
-type Step = 'loading' | 'edit' | 'deploy' | 'timeout';
+type Step = 'choose' | 'interview' | 'loading' | 'edit' | 'deploy' | 'timeout';
+
+/** 手动编辑的起点：中性画像（与后端 _neutral_persona 一致，PUT /persona 会落库）。 */
+function neutralFile(name: string): PersonaFile {
+  return {
+    display_name: name || '未命名',
+    archetype: '还在认识自己的同学',
+    mbti_like: { E_I: 0, S_N: 0, T_F: 0, J_P: 0 },
+    big_five: { O: 0.5, C: 0.5, E: 0.5, A: 0.5, N: 0.5 },
+    interests: [
+      { topic: '校园生活', weight: 0.6, evidence: [] },
+      { topic: '知识分享', weight: 0.5, evidence: [] },
+      { topic: '旅行', weight: 0.4, evidence: [] },
+    ],
+    stances: [],
+    speaking_style: { tone: '自然', emoji: false, length: '中', catchphrases: [] },
+    values: ['真诚'],
+    social: { initiative: 0.5, group_pref: '小圈子', avoid_topics: ['个人隐私'] },
+    campus_identity: { major: '未定', grade: '大二', club: null },
+    appearance: '穿得简单，走路不急',
+    summary:
+      '这位同学的画像还在草稿阶段。你可以直接改每一项——改完保存就能投放，之后也随时能回来调整。',
+  };
+}
 
 export default function Persona() {
   const navigate = useNavigate();
@@ -59,7 +83,7 @@ export default function Persona() {
         .then((res) => {
           setFile(res.file);
         })
-        .catch(() => void generate());
+        .catch(() => setStep('choose'));
       void avatarApi
         .me()
         .then((me) => {
@@ -69,8 +93,8 @@ export default function Persona() {
         .catch(() => setStep('deploy'));
       return;
     }
-    void generate();
-  }, [user, generate]);
+    setStep('choose');
+  }, [user]);
 
   // 阶段文案轮播
   useEffect(() => {
@@ -101,6 +125,89 @@ export default function Persona() {
     }
   };
 
+  if (step === 'choose') {
+    const options: { title: string; hint: string; action: () => void; primary?: boolean }[] = [
+      {
+        title: '对话生成（推荐）',
+        hint: 'LLM 读你的知乎公开内容后，一次一个问题地了解你；画像随回答逐步成形',
+        action: () => setStep('interview'),
+        primary: true,
+      },
+      {
+        title: '自己编辑参数',
+        hint: '跳过生成，直接填写性格、兴趣、说话风格等每一项',
+        action: () => {
+          setFile(neutralFile(user?.display_name ?? ''));
+          setThin(false);
+          setStep('edit');
+        },
+      },
+      {
+        title: '一键生成（只用知乎数据）',
+        hint: '不回答问题，直接从公开内容提炼；内容少时画像会偏薄',
+        action: () => void generate(),
+      },
+    ];
+    return (
+      <div className="mx-auto max-w-md px-3 py-10">
+        <h1 className="text-center text-xl font-semibold text-ink">先把「你」造出来</h1>
+        <p className="mt-1.5 text-center text-sm text-muted">
+          分身会带着这份人格在校园里自己行动。选一种生成方式：
+        </p>
+        <div className="mt-6 space-y-3">
+          {options.map((opt) => (
+            <button
+              key={opt.title}
+              type="button"
+              onClick={opt.action}
+              className={[
+                'w-full rounded-2xl border px-4 py-3.5 text-left transition-colors',
+                opt.primary
+                  ? 'border-brand-500 bg-brand-50 hover:bg-brand-100'
+                  : 'border-black/10 bg-white hover:bg-black/[.02]',
+              ].join(' ')}
+            >
+              <span className={['block text-sm font-medium', opt.primary ? 'text-brand-700' : 'text-ink'].join(' ')}>
+                {opt.title}
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-muted">
+          所有方式都能在下一步继续手动微调；人格文件随时可以删除。
+        </p>
+      </div>
+    );
+  }
+
+  if (step === 'interview') {
+    return (
+      <div className="mx-auto max-w-xl px-3 py-4">
+        <PersonaInterview
+          onDone={(f) => {
+            setFile(f);
+            setThin(false);
+            setStep('edit');
+          }}
+        />
+        <p className="mt-3 text-center text-[11px] text-muted">
+          不想聊了？随时可以
+          <button
+            type="button"
+            className="mx-1 text-brand-600 underline-offset-2 hover:underline"
+            onClick={() => {
+              setFile(neutralFile(user?.display_name ?? ''));
+              setStep('edit');
+            }}
+          >
+            改为手动编辑
+          </button>
+        </p>
+      </div>
+    );
+  }
+
   if (step === 'loading') {
     return (
       <div className="mx-auto max-w-md px-3 py-20 text-center">
@@ -129,7 +236,7 @@ export default function Persona() {
       {/* 步骤指示 */}
       <div className="mb-4 flex items-center gap-2 text-xs">
         {(['生成', '编辑', '投放'] as const).map((label, i) => {
-          const idx = step === 'edit' ? 1 : 2;
+          const idx = step === 'edit' ? 1 : step === 'deploy' ? 2 : 0;
           const active = i === idx;
           const done = i < idx;
           return (

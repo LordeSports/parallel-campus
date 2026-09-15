@@ -11,16 +11,21 @@ from sqlmodel import col, select
 from ..config import settings
 from ..errors import Conflict, NotFound, RateLimited
 from ..models import Character, Persona, User, new_id, now_utc
-from ..persona.pipeline import generate_persona
+from ..persona import interview
+from ..persona.pipeline import generate_persona, post_process
 from ..schemas.domain import PersonaFile
 from ..schemas.views import (
     DeployRequest,
+    InterviewAnswerRequest,
+    InterviewFinishRequest,
+    InterviewView,
     PersonaResponse,
     PersonaUpdateRequest,
     SourceStats,
 )
 from ..seeds import get_avatar, location_map
 from ..sim.world import get_world
+from ..zhihu.user_data import EvidencePack
 from .deps import CurrentUser, SessionDep
 from .world import character_detail_view
 
@@ -141,8 +146,10 @@ async def put_persona(
     persona = (
         await session.exec(select(Persona).where(col(Persona.user_id) == user.id))
     ).first()
+    # 手动编辑路径没有先跑过 generate：这里直接落库，而不是 404
     if persona is None:
-        raise NotFound("还没有人格文件，请先生成")
+        persona = Persona(id=new_id("pe_"), user_id=user.id)
+        session.add(persona)
 
     from ..sim.filter import check_text
 
@@ -236,6 +243,43 @@ async def deploy(
     world.state.speed_mode = world.state.speed_mode
 
     return character_detail_view(world, char, me_user_id=user.id, session=session)
+
+
+@router.post("/interview/start", response_model=InterviewView)
+async def interview_start(session: SessionDep, user: CurrentUser) -> InterviewView:
+    """对话式画像 · 开场：拉知乎证据 → 第一问（已有进行中的会话则续上）。"""
+    return InterviewView(**await interview.start(session, user))
+
+
+@router.post("/interview/answer", response_model=InterviewView)
+async def interview_answer(
+    payload: InterviewAnswerRequest, session: SessionDep, user: CurrentUser
+) -> InterviewView:
+    """对话式画像 · 回答：LLM 完善画像并给下一问；画像足够完善时 done=true。"""
+    return InterviewView(**await interview.answer(session, user, payload.session_id, payload.answer))
+
+
+@router.post("/interview/finish", response_model=PersonaResponse)
+async def interview_finish(
+    payload: InterviewFinishRequest, session: SessionDep, user: CurrentUser
+) -> PersonaResponse:
+    """对话式画像 · 收尾：把访谈草稿清洗后落成正式人格文件。"""
+    raw = await interview.load_draft(session, user, payload.session_id)
+    file = post_process(raw, EvidencePack(), user.display_name)
+
+    persona = (
+        await session.exec(select(Persona).where(col(Persona.user_id) == user.id))
+    ).first()
+    if persona is None:
+        persona = Persona(id=new_id("pe_"), user_id=user.id)
+        session.add(persona)
+    persona.file = file.model_dump()
+    persona.thin = False
+    persona.version = (persona.version or 0) + 1
+    session.add(persona)
+    await session.commit()
+    await session.refresh(persona)
+    return _to_view(persona)
 
 
 __all__ = ["router", "_to_view", "_neutral_persona"]

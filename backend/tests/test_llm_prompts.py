@@ -210,7 +210,7 @@ def test_coerce_match_report_caps_friends_at_three():
     assert len(d.top_friends) == 3
 
 
-# ─────────────── 模板渲染（9 个，夹具 ctx） ───────────────
+# ─────────────── 模板渲染（10 个，夹具 ctx） ───────────────
 
 _FIXTURE_CTX = {
     "persona_extract": {
@@ -297,6 +297,15 @@ _FIXTURE_CTX = {
             "affinity": 5, "affinity_delta": 3, "tags": ["科幻"], "memories": ["- 一起聊了科幻。"],
         }],
     },
+    "persona_interview": {
+        "display_name": "测试",
+        "evidence": "【C1】测试内容",
+        "history": [{"speaker": "你", "text": "我喜欢折腾数码"}],
+        "round_no": 1,
+        "max_rounds": 8,
+        "probes": ["科技：《某评测》摘要"],
+        "draft_note": "测试：好奇的工科生",
+    },
 }
 
 _TEMPLATES = list(_FIXTURE_CTX.keys())
@@ -316,7 +325,7 @@ def test_template_under_budget(name):
     assert len(out) / 1.5 < 6000
 
 
-def test_all_nine_templates_exist():
+def test_all_templates_exist():
     from app.config import PROMPTS_DIR
 
     found = {p.stem for p in PROMPTS_DIR.glob("*.j2")}
