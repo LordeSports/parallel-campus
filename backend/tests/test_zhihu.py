@@ -150,10 +150,69 @@ async def test_mock_client_user_data_router(session):
 
 @pytest.mark.asyncio
 async def test_mock_search_matches_query(session):
+    from app.zhihu.content import SEARCH_PATH
+
     client = MockZhihuClient(session, latency=0)
-    data = await client.get("zhihu_search", "/api/v1/search", {"Query": "独立游戏"})
+    data = await client.get("zhihu_search", SEARCH_PATH, {"Query": "独立游戏", "Count": 3})
     assert data["Code"] == 0
     assert isinstance(data["Data"]["Items"], list)
+
+
+# ─────────────── §4.1 端点路径（回归：曾全线 404） ───────────────
+
+
+def test_zhihu_endpoint_paths_match_official_docs():
+    """端点必须与 `官方skill包/references/http-api.md` 一致。
+
+    回归：曾写成 `/api/v1/search` 与 `/api/v1/hot_list`，线上稳定 404
+    （正确路径带 `/content/` 段）。搜索的参数名也是 `Count`，传 `Limit` 会被忽略。
+    """
+    from app.zhihu.content import HOT_PATH, SEARCH_PATH, ZHIDA_PATH
+
+    assert SEARCH_PATH == "/api/v1/content/zhihu_search"
+    assert HOT_PATH == "/api/v1/content/hot_list"
+    assert ZHIDA_PATH == "/v1/chat/completions"
+
+
+@pytest.mark.asyncio
+async def test_zhihu_search_passes_documented_params(monkeypatch):
+    """搜索：path 带 /content/，参数名为 Count；字符串形式的计数要能解析。"""
+    from app.zhihu import content as content_mod
+
+    seen: dict = {}
+
+    class _FakeClient:
+        async def get(self, api, path, params, **kw):  # noqa: ANN001, ANN003
+            seen.update(api=api, path=path, params=params)
+            return {
+                "Code": 0,
+                "Data": {
+                    "Items": [
+                        {"Title": "标题", "ContentText": "摘要", "Url": "https://x",
+                         "AuthorName": "", "VoteUpCount": "7"},
+                    ]
+                },
+            }
+
+    monkeypatch.setattr(content_mod, "_client", lambda _session: _FakeClient())
+    rows = await content_mod.zhihu_search("平行校园", 3, session=object())
+
+    assert seen["api"] == "zhihu_search"
+    assert seen["path"] == "/api/v1/content/zhihu_search"
+    assert seen["params"] == {"Query": "平行校园", "Count": 3}
+    assert rows[0]["vote_up_count"] == 7          # 字符串计数
+    assert rows[0]["title"] == "标题"
+
+
+def test_as_int_tolerates_garbage():
+    from app.zhihu.content import _as_int
+
+    assert _as_int("12") == 12
+    assert _as_int(3) == 3
+    assert _as_int("") == 0
+    assert _as_int(None) == 0
+    assert _as_int("n/a") == 0
+    assert _as_int(" 8 ") == 8
 
 
 # ─────────────── §4.2 证据包 ───────────────

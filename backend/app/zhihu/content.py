@@ -24,8 +24,12 @@ from .mock import MockZhihuClient
 
 log = logging.getLogger("pc.zhihu.content")
 
-HOT_PATH = "/api/v1/hot_list"
-SEARCH_PATH = "/api/v1/search"
+# 端点依据：`官方skill包/references/http-api.md`
+# - 知乎站内搜索 GET /api/v1/content/zhihu_search  参数 Query / Count（≤10）
+# - 热榜        GET /api/v1/content/hot_list       参数 Limit（≤30）
+# - 直答        POST /v1/chat/completions
+HOT_PATH = "/api/v1/content/hot_list"
+SEARCH_PATH = "/api/v1/content/zhihu_search"
 ZHIDA_PATH = "/v1/chat/completions"
 ZHIDA_MODEL = "zhida-fast-1p5"
 
@@ -91,7 +95,8 @@ async def zhihu_search(
             return await zhihu_search(query, count, session=s)
 
     client = _client(session)
-    data = await client.get("zhihu_search", SEARCH_PATH, {"Query": query, "Limit": count})
+    # 文档参数名是 Count（≤10）；传 Limit 会被服务端忽略、退化成默认 10 条
+    data = await client.get("zhihu_search", SEARCH_PATH, {"Query": query, "Count": count})
     items = _dig(data, "Items") or _dig(data, "items") or []
     out: list[dict[str, Any]] = []
     for it in items[:count]:
@@ -102,7 +107,8 @@ async def zhihu_search(
             )[:200],
             "url": str(it.get("Url") or it.get("url") or ""),
             "author_name": str(it.get("AuthorName") or it.get("author_name") or ""),
-            "vote_up_count": int(it.get("VoteUpCount") or it.get("vote_up_count") or 0),
+            # 真实响应里 VoteUpCount 是**字符串**（如 "1"），也可能是空串
+            "vote_up_count": _as_int(it.get("VoteUpCount") or it.get("vote_up_count")),
         })
     return out
 
@@ -145,6 +151,14 @@ async def zhida(question: str, *, session: AsyncSession | None = None) -> str:
 
 
 # ─────────────────────────── 助手 ───────────────────────────
+
+
+def _as_int(value: Any) -> int:
+    """开放平台常把计数返回成字符串（`"1"`、`""`），这里统一成 int，不抛异常。"""
+    try:
+        return int(str(value).strip() or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _dig(data: dict[str, Any], key: str) -> Any:
