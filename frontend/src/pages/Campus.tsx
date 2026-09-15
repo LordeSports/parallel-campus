@@ -34,6 +34,33 @@ function BriefingCard() {
   );
 }
 
+const WEATHER_LABEL: Record<string, string> = {
+  sunny: '晴',
+  cloudy: '多云',
+  rainy: '有雨',
+  foggy: '有雾',
+  windy: '大风',
+};
+
+/** 天气一栏：图标 + 中文 + 温度（emoji 缺字形时靠文字兜底）。 */
+function WeatherChip() {
+  const weather = useWorld((s) => s.state?.weather);
+  if (!weather) return <span className="text-muted">天气载入中…</span>;
+  const kind = weather.kind ?? 'sunny';
+  const emoji = WEATHER_EMOJI[kind] ?? '🌤';
+  const text = (weather as { text?: string }).text ?? '';
+  return (
+    <span
+      className="flex items-center gap-1.5 rounded-full bg-sky-50 px-2 py-0.5 text-sky-800"
+      title={text || undefined}
+    >
+      <span className="emoji" aria-hidden="true">{emoji}</span>
+      <span className="font-medium">{WEATHER_LABEL[kind] ?? kind}</span>
+      <span className="tabular-nums">{weather.temp_c}°</span>
+    </span>
+  );
+}
+
 /** 紧凑状态条。原来是一块很高的蓝色横幅，把主显示区压得太小。 */
 function StatusBar() {
   const state = useWorld((s) => s.state);
@@ -42,9 +69,6 @@ function StatusBar() {
   const connected = useWorld((s) => s.connected);
 
   const awake = Object.values(characters).filter((c) => !c.is_asleep).length;
-  const weather = state
-    ? `${WEATHER_EMOJI[state.weather.kind ?? 'sunny'] ?? '🌤'} ${state.weather.temp_c}°`
-    : '—';
   const speed =
     state?.speed_mode === 'fast_forward' ? '快进中' : state?.speed_mode === 'paused' ? '已暂停' : '运行中';
   const dotClass = connected ? 'bg-emerald-500' : 'bg-amber-400';
@@ -53,7 +77,7 @@ function StatusBar() {
     <div className="mx-3 mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-2xl border border-black/5 bg-white/75 px-4 py-2.5 text-xs backdrop-blur">
       <span className="font-medium text-ink">今天的校园，正在自己长出来</span>
       <span className="text-muted">{state?.time_label ?? '载入中…'}</span>
-      <span className="text-muted">{weather}</span>
+      <WeatherChip />
       <span className="text-muted">{awake} 人醒着</span>
       <span className="text-muted">{Object.keys(characters).length} 个 Agent</span>
       <span className="text-muted">{state?.observers ?? 0} 位观察者</span>
@@ -70,6 +94,7 @@ export default function Campus() {
   const [picked, setPicked] = useState<string | null>(null);
   const loading = useWorld((s) => s.loading);
   const error = useWorld((s) => s.error);
+  const state = useWorld((s) => s.state);
   const characters = useWorld((s) => s.characters);
   const map = useMap((s) => s.map);
   const mapLoading = useMap((s) => s.loading);
@@ -94,7 +119,12 @@ export default function Campus() {
         {/* 校园地图：占满剩余空间，可拖动/滚轮缩放 */}
         <div className="relative min-h-0 flex-1 p-3">
           <div className="card relative h-full overflow-hidden">
-            <IsoMap map={map} characters={charList} onPickCharacter={setPicked} />
+            <IsoMap
+              map={map}
+              characters={charList}
+              weather={state?.weather.kind ?? 'sunny'}
+              onPickCharacter={setPicked}
+            />
             {loading || (mapLoading && !map) ? (
               <div className="absolute left-3 top-3 chip bg-white/90 text-muted">加载中…</div>
             ) : null}

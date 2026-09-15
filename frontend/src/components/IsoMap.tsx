@@ -53,6 +53,8 @@ export interface IsoMapProps {
   onMoveEnd?: () => void;
   onPickCharacter?: (id: string) => void;
   showGrid?: boolean;
+  /** 天气类型：sunny / cloudy / rainy / foggy / windy（在主界面上可见） */
+  weather?: string;
   view?: Viewport;
   onViewChange?: (v: Viewport) => void;
   className?: string;
@@ -74,6 +76,30 @@ const GROUND_TEXTURE_ID: Record<string, string> = {
 function Defs() {
   return (
     <defs>
+      <style>
+        {`
+          @keyframes iso-bob { from { transform: translateY(0) } to { transform: translateY(-2.2px) } }
+          @keyframes iso-sway { 0%,100% { transform: rotate(-1.8deg) } 50% { transform: rotate(1.8deg) } }
+          @keyframes iso-drift { from { transform: translateX(-52px) } to { transform: translateX(52px) } }
+          @keyframes iso-fall { from { transform: translateY(0) } to { transform: translateY(46px) } }
+          @keyframes iso-glow { from { opacity: .7 } to { opacity: 1 } }
+          @keyframes iso-flicker { 0%,100% { opacity: .5 } 55% { opacity: .95 } }
+          @keyframes iso-wind { to { stroke-dashoffset: -124 } }
+          @keyframes iso-ripple { from { transform: translateX(-10px) } to { transform: translateX(10px) } }
+          .iso-bob { animation: iso-bob 2.6s ease-in-out infinite alternate }
+          .iso-sway { animation: iso-sway 5.2s ease-in-out infinite; transform-origin: 50% 100%; transform-box: fill-box }
+          .iso-drift { animation: iso-drift 26s ease-in-out infinite alternate }
+          .iso-fall { animation: iso-fall 1.05s linear infinite }
+          .iso-glow { animation: iso-glow 3s ease-in-out infinite alternate }
+          .iso-flicker { animation: iso-flicker 4.5s ease-in-out infinite }
+          .iso-wind { stroke-dasharray: 18 44; animation: iso-wind 2.1s linear infinite }
+          .iso-ripple { animation: iso-ripple 4s ease-in-out infinite alternate }
+          @media (prefers-reduced-motion: reduce) {
+            .iso-bob, .iso-sway, .iso-drift, .iso-fall, .iso-glow,
+            .iso-flicker, .iso-wind, .iso-ripple { animation: none }
+          }
+        `}
+      </style>
       <pattern id="tex-grass" width="14" height="14" patternUnits="userSpaceOnUse">
         <path d="M3 9 q1.5 -3 3 0" fill="none" stroke="#a9cd97" strokeWidth="1.1" strokeLinecap="round" />
         <path d="M9 4 q1.5 -3 3 0" fill="none" stroke="#b9dba8" strokeWidth="1" strokeLinecap="round" />
@@ -106,11 +132,24 @@ function Defs() {
           strokeWidth=".7"
         />
       </pattern>
+      {/* 天空背景：柔和的纸面 → 淡青 */}
+      <linearGradient id="iso-sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#e8f2ec" />
+        <stop offset="45%" stopColor="#f2f1e6" />
+        <stop offset="100%" stopColor="#efe7d6" />
+      </linearGradient>
+      <radialGradient id="iso-vignette" cx="50%" cy="42%" r="75%">
+        <stop offset="70%" stopColor="#000" stopOpacity="0" />
+        <stop offset="100%" stopColor="#3f4a3a" stopOpacity=".10" />
+      </radialGradient>
       <filter id="iso-shadow" x="-30%" y="-30%" width="160%" height="180%">
         <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#64748b" floodOpacity=".22" />
       </filter>
       <filter id="iso-sel" x="-40%" y="-40%" width="180%" height="180%">
         <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#0084ff" floodOpacity=".9" />
+      </filter>
+      <filter id="iso-soft" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="3" stdDeviation="3.5" floodColor="#5b6355" floodOpacity=".18" />
       </filter>
     </defs>
   );
@@ -123,11 +162,33 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
   const seed = Number(o.props?.seed ?? 7);
   const corners = quad(o.tx, o.ty, o.tw, o.th, rows);
   const shape = wobblyPolygon(corners, seed, o.tw > 12 ? 2.2 : 1.4);
+  const inner = quad(o.tx + 0.35, o.ty + 0.35, Math.max(0.5, o.tw - 0.7), Math.max(0.5, o.th - 0.7), rows);
 
   return (
     <g>
+      {/* 底缘微阴影：让地面块有厚度感 */}
+      <path d={shape} fill="#5f6b58" opacity=".12" transform="translate(2 3)" />
       <path d={shape} fill={style.fill} stroke={style.edge} strokeWidth="1.2" strokeLinejoin="round" />
       <path d={shape} fill={`url(#${GROUND_TEXTURE_ID[o.variant] ?? 'tex-grass'})`} opacity=".85" />
+      {o.variant === 'water' && (
+        <>
+          {/* 水面高光：随波纹缓慢移动 */}
+          <g className="iso-ripple">
+            <path d={wobblyPolygon(inner, seed + 3, 2)} fill="none" stroke="#e8f8fd" strokeWidth="1.6" opacity=".55" />
+            <path
+              d={wobblyPolygon(
+                quad(o.tx + 1, o.ty + 1, Math.max(1, o.tw - 2), Math.max(1, o.th - 2), rows),
+                seed + 11,
+                2.4,
+              )}
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="1"
+              opacity=".35"
+            />
+          </g>
+        </>
+      )}
       {o.variant === 'field_track' && (
         <path
           d={pathOf([
@@ -141,6 +202,9 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
           strokeWidth="3"
           strokeLinejoin="round"
         />
+      )}
+      {o.variant === 'plaza' && (
+        <path d={pathOf(inner)} fill="#ffffff" opacity=".14" />
       )}
     </g>
   );
@@ -190,6 +254,26 @@ function BuildingShape({ o, rows }: { o: MapObjectView; rows: number }) {
 
   const rnd = seeded(seed);
 
+  // 门：位于面向观察者的右立面（s→e 棱）靠 s 端
+  const doorT = 0.18;
+  const doorW = 0.16;
+  const doorH = Math.min(h * 0.62, 34);
+  const ds = { x: s.x + (e.x - s.x) * doorT, y: s.y + (e.y - s.y) * doorT };
+  const de = { x: s.x + (e.x - s.x) * (doorT + doorW), y: s.y + (e.y - s.y) * (doorT + doorW) };
+  const door = pathOf([
+    ds,
+    de,
+    { x: de.x, y: de.y - doorH },
+    { x: ds.x, y: ds.y - doorH },
+  ]);
+  // 门口台阶
+  const step = pathOf([
+    { x: ds.x - 3, y: ds.y + 3 },
+    { x: de.x + 3, y: de.y + 3 },
+    { x: de.x + 5, y: de.y + 5.5 },
+    { x: ds.x - 5, y: ds.y + 5.5 },
+  ]);
+
   return (
     <g>
       {/* 影子 */}
@@ -197,13 +281,33 @@ function BuildingShape({ o, rows }: { o: MapObjectView; rows: number }) {
       {/* 立面 */}
       <path d={leftWall} fill={st.left} />
       <path d={rightWall} fill={st.right} />
+      {/* 立面根部压暗：增强落地感 */}
+      <path d={pathOf([w, s, e, { x: e.x, y: e.y - Math.min(10, h * 0.3) }, { x: w.x, y: w.y - Math.min(10, h * 0.3) }])} fill="#000" opacity=".05" />
       <path d={polylinePath([up(w, h), up(s, h), up(e, h)])} fill="none" stroke={st.trim} strokeWidth="2" opacity=".7" />
       {floorLines.map((d, i) => (
         <path key={`f${i}`} d={d} fill="none" stroke="#000" strokeOpacity=".06" strokeWidth="1" />
       ))}
-      {windows.map((p, i) => (
-        <path key={`w${i}`} d={pathOf(p)} fill="#e8f1fb" opacity={0.55 + rnd() * 0.25} stroke="#b9cfe4" strokeWidth=".6" />
-      ))}
+      {/* 窗：暖光 + 少数窗呼吸闪烁 */}
+      {windows.map((p, i) => {
+        const lit = rnd() < 0.72;
+        const flicker = lit && rnd() < 0.22;
+        return (
+          <path
+            key={`w${i}`}
+            d={pathOf(p)}
+            className={flicker ? 'iso-flicker' : undefined}
+            fill={lit ? '#ffe3a6' : '#e8f1fb'}
+            opacity={lit ? 0.85 : 0.55}
+            stroke={lit ? '#e8b968' : '#b9cfe4'}
+            strokeWidth=".6"
+            style={flicker ? { animationDelay: `${(i % 5) * 0.9}s` } : undefined}
+          />
+        );
+      })}
+      {/* 门 + 台阶 */}
+      <path d={step} fill="#cfc9bd" opacity=".9" />
+      <path d={door} fill="#7a6650" stroke="#5f5040" strokeWidth="1" />
+      <path d={polylinePath([{ x: de.x - 2, y: (de.y + ds.y) / 2 - doorH * 0.45 }, { x: de.x - 2, y: (de.y + ds.y) / 2 - doorH * 0.15 }])} stroke="#e8d9b0" strokeWidth="1.6" strokeLinecap="round" />
       {/* 屋顶 */}
       {st.roofKind === 'gable' ? (
         <>
@@ -267,10 +371,13 @@ function PropShape({ o, rows }: { o: MapObjectView; rows: number }) {
       return (
         <g>
           {shadow}
-          <rect x={p.x - 2.6} y={p.y - 12} width="5.2" height="13" rx="2.4" fill={PROP_COLORS.treeTrunk} />
-          <circle cx={p.x} cy={p.y - 26} r="14.5" fill={PROP_COLORS.treeLeaf} />
-          <circle cx={p.x + 8} cy={p.y - 32} r="10" fill={PROP_COLORS.treeLeafAlt} />
-          <circle cx={p.x - 8} cy={p.y - 30} r="9" fill={PROP_COLORS.treeLeafAlt} opacity=".9" />
+          <g className="iso-sway" style={{ animationDelay: `${(seed % 7) * 0.32}s` }}>
+            <rect x={p.x - 2.6} y={p.y - 12} width="5.2" height="13" rx="2.4" fill={PROP_COLORS.treeTrunk} />
+            <circle cx={p.x} cy={p.y - 26} r="14.5" fill={PROP_COLORS.treeLeaf} />
+            <circle cx={p.x + 8} cy={p.y - 32} r="10" fill={PROP_COLORS.treeLeafAlt} />
+            <circle cx={p.x - 8} cy={p.y - 30} r="9" fill={PROP_COLORS.treeLeafAlt} opacity=".9" />
+            <circle cx={p.x + 1} cy={p.y - 34} r="5.5" fill="#ffffff" opacity=".22" />
+          </g>
         </g>
       );
     case 'pine': {
@@ -278,9 +385,11 @@ function PropShape({ o, rows }: { o: MapObjectView; rows: number }) {
       return (
         <g>
           {shadow}
-          <rect x={p.x - 2.4} y={p.y - 10} width="4.8" height="11" rx="2" fill={PROP_COLORS.treeTrunk} />
-          <path d={pathOf([{ x: p.x, y: p.y - h - 14 }, { x: p.x + 12, y: p.y - h * 0.55 }, { x: p.x - 12, y: p.y - h * 0.55 }])} fill={PROP_COLORS.pineLeaf} />
-          <path d={pathOf([{ x: p.x, y: p.y - h }, { x: p.x + 14, y: p.y - h * 0.3 }, { x: p.x - 14, y: p.y - h * 0.3 }])} fill={PROP_COLORS.pineLeafAlt} />
+          <g className="iso-sway" style={{ animationDelay: `${(seed % 5) * 0.4}s` }}>
+            <rect x={p.x - 2.4} y={p.y - 10} width="4.8" height="11" rx="2" fill={PROP_COLORS.treeTrunk} />
+            <path d={pathOf([{ x: p.x, y: p.y - h - 14 }, { x: p.x + 12, y: p.y - h * 0.55 }, { x: p.x - 12, y: p.y - h * 0.55 }])} fill={PROP_COLORS.pineLeaf} />
+            <path d={pathOf([{ x: p.x, y: p.y - h }, { x: p.x + 14, y: p.y - h * 0.3 }, { x: p.x - 14, y: p.y - h * 0.3 }])} fill={PROP_COLORS.pineLeafAlt} />
+          </g>
         </g>
       );
     }
@@ -366,33 +475,50 @@ function Character({ c, x, y, onPick }: { c: CharacterSummaryView; x: number; y:
   const face = c.kind === 'system' ? '📣' : meta.emoji;
   // 角标只放情绪脸（arousal 传 null → 不带 ⚡，尺寸才放得下）
   const moodFace = moodEmoji(c.mood?.valence, null);
+  const label = `${c.name.length > 5 ? `${c.name.slice(0, 5)}…` : c.name}${c.is_me ? '·我' : ''}`;
+  const plateW = Math.max(30, label.length * 9 + 10);
+  // 按 id 派生稳定的动画相位，避免所有人同步跳动
+  const phase = (c.id.charCodeAt(c.id.length - 1) % 7) * 0.28;
+
   return (
     <g
       transform={`translate(${x} ${y})`}
-      opacity={c.is_asleep ? 0.6 : 1}
+      opacity={c.is_asleep ? 0.62 : 1}
       onClick={onPick ? () => onPick(c.id) : undefined}
       style={{ cursor: onPick ? 'pointer' : 'default' }}
     >
       <ellipse cx="0" cy="3" rx="11" ry="4" fill="#64748b" opacity=".2" />
-      <rect x="-5.5" y="-14" width="11" height="15" rx="5" fill={ring} opacity=".85" />
-      <circle cx="0" cy="-20" r="9.5" fill={meta.bg} stroke={ring} strokeWidth={c.is_me ? 2.6 : 1.8} />
-      <text textAnchor="middle" y="-16.5" fontSize="9.5" className="emoji" style={{ pointerEvents: 'none' }}>
-        {face}
-      </text>
-      {/* 心情角标 */}
-      <circle cx="8.5" cy="-28" r="5.2" fill="#fff" stroke="#e5e7eb" strokeWidth="0.8" />
-      <text textAnchor="middle" x="8.5" y="-25" fontSize="6.5" className="emoji" style={{ pointerEvents: 'none' }}>
-        {moodFace}
-      </text>
-      <text textAnchor="middle" y="14" fontSize="9.5" fill="#374151" style={{ pointerEvents: 'none' }}>
-        {c.name.length > 5 ? `${c.name.slice(0, 5)}…` : c.name}
-        {c.is_me ? '·我' : ''}
-      </text>
-      {c.is_asleep && (
-        <text x="8" y="-30" fontSize="9" className="emoji" style={{ pointerEvents: 'none' }}>
-          💤
+      <g className="iso-bob" style={{ animationDelay: `${phase}s` }}>
+        {/* 身体 */}
+        <path
+          d="M-6 -14 q0 -6 6 -6 q6 0 6 6 l0 14 q0 3 -3 3 l-6 0 q-3 0 -3 -3 Z"
+          fill={ring}
+          opacity=".92"
+        />
+        <path d="M-6 -8 q6 3 12 0" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".45" />
+        {/* 头 */}
+        <circle cx="0" cy="-20" r="9.5" fill={meta.bg} stroke={ring} strokeWidth={c.is_me ? 2.6 : 1.8} />
+        <text textAnchor="middle" y="-16.5" fontSize="9.5" className="emoji" style={{ pointerEvents: 'none' }}>
+          {face}
         </text>
-      )}
+        {/* 心情角标 */}
+        <circle cx="8.5" cy="-28" r="5.2" fill="#fff" stroke="#e5e7eb" strokeWidth="0.8" />
+        <text textAnchor="middle" x="8.5" y="-25" fontSize="6.5" className="emoji" style={{ pointerEvents: 'none' }}>
+          {moodFace}
+        </text>
+        {c.is_asleep && (
+          <text x="9" y="-30" fontSize="9" className="emoji" style={{ pointerEvents: 'none' }}>
+            💤
+          </text>
+        )}
+      </g>
+      {/* 名牌：白底圆角，保证在草地/水面上都读得清 */}
+      <g style={{ pointerEvents: 'none' }}>
+        <rect x={-plateW / 2} y="7" width={plateW} height="14" rx="7" fill="#ffffff" opacity=".82" />
+        <text textAnchor="middle" y="17.5" fontSize="9.5" fill="#374151">
+          {label}
+        </text>
+      </g>
     </g>
   );
 }
@@ -406,6 +532,96 @@ function spotFor(anchor: MapObjectView, index: number, rows: number): Pt {
   const ty = anchor.ty + anchor.th + 0.55 + row * 0.95;
   const p = toScreen(tx, ty, rows);
   return { x: p.x, y: p.y - 6 };
+}
+
+// ─────────────────────────── 天气 ───────────────────────────
+
+function Cloud({ x, y, s, dur, delay }: { x: number; y: number; s: number; dur: number; delay: number }) {
+  return (
+    <g className="iso-drift" style={{ animationDuration: `${dur}s`, animationDelay: `${delay}s` }}>
+      <ellipse cx={x} cy={y} rx={40 * s} ry={15 * s} fill="#ffffff" opacity=".55" />
+      <ellipse cx={x + 26 * s} cy={y + 3 * s} rx={26 * s} ry={12 * s} fill="#ffffff" opacity=".45" />
+      <ellipse cx={x - 24 * s} cy={y + 4 * s} rx={22 * s} ry={10 * s} fill="#ffffff" opacity=".4" />
+    </g>
+  );
+}
+
+/**
+ * 天气效果（屏幕空间，不随地图缩放）。
+ * `sunny` 也有轻微表现（暖光斑），否则用户会觉得「天气没显示」。
+ */
+function WeatherOverlay({ kind, width, height }: { kind: string; width: number; height: number }) {
+  if (kind === 'rainy') {
+    const rnd = seeded(11);
+    const step = 46;
+    const lines: React.ReactNode[] = [];
+    for (let row = -step; row < height + step; row += step) {
+      for (let i = 0; i < 8; i++) {
+        const x = rnd() * width;
+        const y0 = row + rnd() * step;
+        lines.push(
+          <line key={`${row}-${i}`} x1={x} y1={y0} x2={x - 5} y2={y0 + 27}
+                stroke="#8fbdd6" strokeWidth="1.3" strokeLinecap="round" opacity=".5" />,
+        );
+      }
+    }
+    return (
+      <g style={{ pointerEvents: 'none' }}>
+        <rect x="0" y="0" width={width} height={height} fill="#7fa8c4" opacity=".10" />
+        <g className="iso-fall">{lines}</g>
+      </g>
+    );
+  }
+
+  if (kind === 'foggy') {
+    return (
+      <g style={{ pointerEvents: 'none' }}>
+        <rect x="0" y="0" width={width} height={height} fill="#eef2f5" opacity=".28" />
+        <g className="iso-drift" style={{ animationDuration: '38s' }}>
+          <ellipse cx={width * 0.3} cy={height * 0.72} rx={width * 0.4} ry={height * 0.06} fill="#ffffff" opacity=".42" />
+        </g>
+        <g className="iso-drift" style={{ animationDuration: '52s', animationDelay: '-12s' }}>
+          <ellipse cx={width * 0.7} cy={height * 0.85} rx={width * 0.45} ry={height * 0.05} fill="#ffffff" opacity=".34" />
+        </g>
+      </g>
+    );
+  }
+
+  if (kind === 'windy') {
+    const paths = [
+      `M${width * 0.1} ${height * 0.28} q ${width * 0.16} -18 ${width * 0.34} 0`,
+      `M${width * 0.5} ${height * 0.55} q ${width * 0.14} 16 ${width * 0.3} 0`,
+      `M${width * 0.24} ${height * 0.78} q ${width * 0.16} -14 ${width * 0.32} 0`,
+    ];
+    return (
+      <g style={{ pointerEvents: 'none' }}>
+        {paths.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".6"
+                className="iso-wind" style={{ animationDelay: `${i * 0.5}s` }} />
+        ))}
+      </g>
+    );
+  }
+
+  if (kind === 'cloudy') {
+    return (
+      <g style={{ pointerEvents: 'none' }}>
+        <Cloud x={width * 0.22} y={height * 0.16} s={1.5} dur={30} delay={0} />
+        <Cloud x={width * 0.68} y={height * 0.1} s={1.2} dur={40} delay={-6} />
+        <Cloud x={width * 0.45} y={height * 0.24} s={1.0} dur={46} delay={-14} />
+      </g>
+    );
+  }
+
+  // sunny：暖光斑 + 云影
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <g className="iso-glow" style={{ animationDuration: '6s' }}>
+        <ellipse cx={width * 0.78} cy={height * 0.14} rx={width * 0.2} ry={height * 0.08} fill="#fff3cf" opacity=".42" />
+      </g>
+      <Cloud x={width * 0.3} y={height * 0.08} s={1.1} dur={44} delay={-4} />
+    </g>
+  );
 }
 
 // ─────────────────────────── 主组件 ───────────────────────────
@@ -422,6 +638,7 @@ export default function IsoMap({
   onMoveEnd,
   onPickCharacter,
   showGrid = false,
+  weather = 'sunny',
   view,
   onViewChange,
   className,
@@ -497,7 +714,9 @@ export default function IsoMap({
     if (!world) return;
     const t = toTile(world.x, world.y, rows);
     setDrag({ id: o.id, grabTx: t.tx, grabTy: t.ty, objTx: o.tx, objTy: o.ty });
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    // 捕获到 svg 根上（而不是 e.target）：拖动期间 React 重渲染会替换子元素，
+    // 捕获落在被移除的节点上会静默丢失所有后续事件
+    svgRef.current?.setPointerCapture?.(e.pointerId);
   };
 
   const onSvgPointerMove = (e: React.PointerEvent) => {
@@ -642,8 +861,11 @@ export default function IsoMap({
       >
       <Defs />
 
-      {/* 地面底色 */}
-      <rect x="0" y="0" width={extent.width} height={extent.height} fill="#f4f1e8" />
+      {/* 天空/纸面背景 + 远景云 + 暗角 */}
+      <rect x="0" y="0" width={extent.width} height={extent.height} fill="url(#iso-sky)" />
+      <Cloud x={extent.width * 0.18} y={extent.height * 0.07} s={2.1} dur={60} delay={-8} />
+      <Cloud x={extent.width * 0.62} y={extent.height * 0.04} s={1.6} dur={74} delay={-26} />
+      <Cloud x={extent.width * 0.86} y={extent.height * 0.12} s={1.3} dur={68} delay={-40} />
 
       <g transform={`translate(${panX} ${panY}) scale(${zoom})`}>
         {/* 坐标网格 */}
@@ -668,6 +890,15 @@ export default function IsoMap({
               style={{ cursor: editable ? 'move' : 'default' }}
               filter={isSel ? 'url(#iso-sel)' : undefined}
             >
+              {/* 编辑模式：占位足迹作为命中区（fill 透明但可命中），拖建筑不必精确点到墙上 */}
+              {editable && (
+                <path
+                  d={pathOf(quad(o.tx, o.ty, o.tw, o.th, rows))}
+                  fill="transparent"
+                  stroke="transparent"
+                  strokeWidth="2"
+                />
+              )}
               {o.kind === 'ground' && <GroundBlock o={o} rows={rows} />}
               {o.kind === 'building' && <BuildingShape o={o} rows={rows} />}
               {o.kind === 'prop' && <PropShape o={o} rows={rows} />}
@@ -689,6 +920,12 @@ export default function IsoMap({
         {charPlacements.map(({ c, x, y }) => (
           <Character key={c.id} c={c} x={x} y={y} onPick={onPickCharacter} />
         ))}
+      </g>
+
+      {/* 天气（屏幕空间，不随缩放）与暗角；都不拦截指针事件 */}
+      <g style={{ pointerEvents: 'none' }}>
+        <WeatherOverlay kind={weather} width={extent.width} height={extent.height} />
+        <rect x="0" y="0" width={extent.width} height={extent.height} fill="url(#iso-vignette)" />
       </g>
 
       {/* 放置模式提示 */}
