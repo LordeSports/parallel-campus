@@ -28,7 +28,8 @@ class AdminSessionView(BaseModel):
 
 
 class SimulationRequest(AdminInput):
-    mode: Literal["auto", "paused", "idle", "online", "fast_forward"]
+    # 已去掉 "auto"（按观众数自适应）：档位只由管理员显式指定
+    mode: Literal["paused", "idle", "online", "fast_forward"]
     tick_seconds_online: float = Field(default=20, ge=1, le=3600, allow_inf_nan=False)
     tick_seconds_idle: float = Field(default=300, ge=1, le=86400, allow_inf_nan=False)
     ticks: int = Field(default=48, ge=1, le=1000)

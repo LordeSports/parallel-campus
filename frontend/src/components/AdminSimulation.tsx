@@ -18,13 +18,16 @@ export default function AdminSimulation({ overview, settings, busy, run }: {
     <Section title="运行速度" description={`当前：${overview.world.time_label} · ${overview.world.tick_seconds} 秒 / 步。每步推进 30 个虚拟分钟；实际速度也取决于模型响应。`}>
       <form className="space-y-5" onSubmit={e => { e.preventDefault(); void run(() => adminApi.simulation(simulation), '运行模式已保存'); }}>
         <Field label="运行模式"><select className={fieldClass} value={simulation.mode} onChange={e => setSimulation({ ...simulation, mode: e.target.value as SimulationRequest['mode'] })}>
-          <option value="auto">自动 · 根据观众调整</option><option value="paused">暂停</option><option value="idle">固定慢速</option><option value="online">固定实时</option><option value="fast_forward">快进指定步数</option>
+          <option value="paused">暂停</option><option value="idle">慢速</option><option value="online">实时</option><option value="fast_forward">快进指定步数</option>
         </select></Field>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="实时模式间隔（秒）"><input className={fieldClass} type="number" required min="1" max="3600" value={simulation.tick_seconds_online} onChange={e => setSimulation({ ...simulation, tick_seconds_online: Number(e.target.value) })} /></Field>
           <Field label="慢速模式间隔（秒）"><input className={fieldClass} type="number" required min="1" max="86400" value={simulation.tick_seconds_idle} onChange={e => setSimulation({ ...simulation, tick_seconds_idle: Number(e.target.value) })} /></Field></div>
         {simulation.mode === 'fast_forward' && <Field label="快进步数（1–1000）"><input className={fieldClass} type="number" min="1" max="1000" required value={simulation.ticks} onChange={e => setSimulation({ ...simulation, ticks: Number(e.target.value) })} /></Field>}
         <button className="btn-primary" disabled={busy}>应用运行设置</button>
-        <p className="text-xs text-muted">自动模式无人观看时约 5 秒一步；1 位观众按实时间隔运行，观众越多会逐步放慢，最多 180 秒一步。管理员固定模式会覆盖自动规则。</p>
+        <p className="text-xs text-muted">
+          速度由这里显式决定：慢速固定 {settings.tick_seconds_idle} 秒一步，实时固定 {settings.tick_seconds_online} 秒一步。
+          原先的「自动」（按观众数在两者之间自适应）已移除，档位不再随观众进出而变化。
+        </p>
       </form>
     </Section>
     <div className="space-y-6"><Section title="调整虚拟时间" description="跳到未来并暂停。跳过时段不会补算活动、对话或报告；需要完整模拟请使用快进。">

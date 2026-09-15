@@ -1,11 +1,13 @@
 """Ticker 状态机（spec/04 §1–§2、spec/02 §5.1）。
 
 ```
-paused ──resume──► idle ◄──observers==0── online
-  ▲                 │ observers≥1 ─────────►│
-  └──pause──────────┴────────────────────────┘
-fast_forward：admin 触发，跑完 N tick 后回到 idle/online（按观众数）
+paused ──resume──► online        （管理员显式指定，没有"自动"档）
+idle / online / fast_forward ──pause──► paused
+fast_forward：跑完 N tick 后回到 idle
 ```
+
+> 已去掉「自动倍速」（按观众数在 idle/online 之间自适应）：档位只由管理员决定，
+> 行为可预期，也避免观众进出时速度反复横跳。
 """
 
 from __future__ import annotations
@@ -31,34 +33,22 @@ from .world import World, get_world, set_world
 log = logging.getLogger("pc.ticker")
 
 
-def decide_mode(observers: int, admin_override: str | None, remaining_ticks: int) -> str:
+def decide_mode(admin_override: str | None, remaining_ticks: int) -> str:
+    """档位完全由管理员指定；未指定时默认 idle（启动初值）。"""
     if admin_override == "paused":
         return "paused"
     if admin_override == "fast_forward" or remaining_ticks > 0:
         return "fast_forward"
     if admin_override in {"online", "idle"}:
         return admin_override
-    return "online" if observers >= 1 else "idle"
+    return "idle"
 
 
-def tick_period(mode: str, observers: int | None = None) -> float:
-    """返回当前 tick 间隔。
-
-    自动模式下无人观看时加速；有人观看时随着观众数增加逐步放慢，让每个
-    页面有足够时间观察事件。管理员指定 online/idle 时使用固定间隔。
-    """
+def tick_period(mode: str) -> float:
+    """返回当前 tick 间隔（秒）。固定档位，不再按观众数自适应。"""
     if mode == "online":
-        base = float(settings.tick_seconds_online)
-        if observers is not None and observers > 0:
-            return min(180.0, base * (1 + 0.5 * (observers - 1)))
-        if observers == 0:
-            return max(1.0, min(base, 5.0))
-        return base
+        return float(settings.tick_seconds_online)
     if mode == "idle":
-        if observers == 0:
-            return max(1.0, min(float(settings.tick_seconds_idle), 5.0))
-        if observers is not None and observers > 0:
-            return min(180.0, float(settings.tick_seconds_online) * (1 + 0.5 * (observers - 1)))
         return float(settings.tick_seconds_idle)
     return 0.0
 
@@ -172,7 +162,7 @@ class Ticker:
                 if world is None:
                     break
                 observers = bus.subscriber_count()
-                mode = decide_mode(observers, world.state.admin_override, world.state.remaining_ticks)
+                mode = decide_mode(world.state.admin_override, world.state.remaining_ticks)
                 world.state.speed_mode = mode
                 world.state.observer_count = observers
 
@@ -190,7 +180,7 @@ class Ticker:
 
                 elapsed = asyncio.get_event_loop().time() - started
                 self.last_tick_finished = asyncio.get_event_loop().time()
-                period = tick_period(mode, observers if world.state.admin_override is None else None)
+                period = tick_period(mode)
                 await self._wait_for_control(max(0.0, period - elapsed))
             except asyncio.CancelledError:
                 raise
@@ -216,10 +206,7 @@ class Ticker:
             # 时间推进也在锁内，避免与管理员跳时交错。
             crossed = world.advance()
             world.emit(make_event("tick", world.tick, world.day,
-                                  world.tick_payload(tick_period(
-                                      world.state.speed_mode,
-                                      bus.subscriber_count() if world.state.admin_override is None else None,
-                                  ))))
+                                  world.tick_payload(tick_period(world.state.speed_mode))))
             # ── 阶段 A：环境推进（含 LLM 的热榜/事件，但只在**写短事务**里落库）──
             async with write_session() as session:
                 # 3. 06:00 新一天
@@ -332,8 +319,9 @@ class Ticker:
                 if self.running and world.state.remaining_ticks > 0:
                     world.state.remaining_ticks -= 1
                     if world.state.remaining_ticks == 0:
-                        world.state.admin_override = None
-                        world.state.speed_mode = decide_mode(bus.subscriber_count(), None, 0)
+                        # 快进结束回到「固定慢速」；不再有「自动」档，档位始终是显式值
+                        world.state.admin_override = "idle"
+                        world.state.speed_mode = decide_mode("idle", 0)
                         world.emit(make_event("world_changed", world.tick, world.day,
                                               {"tick": world.tick, "day": world.day}))
                         log.info("fast_forward 完成")
@@ -464,9 +452,9 @@ class Ticker:
         async with write_lock:
             world = self.world or await get_world()
             state = WorldState(**world.state.model_dump())
-            state.admin_override = None if mode == "auto" else mode
+            state.admin_override = mode
             state.remaining_ticks = ticks if mode == "fast_forward" else 0
-            state.speed_mode = decide_mode(bus.subscriber_count(), state.admin_override, state.remaining_ticks)
+            state.speed_mode = decide_mode(state.admin_override, state.remaining_ticks)
             if intervals:
                 save_runtime_settings(intervals)
             async with write_session() as session:
@@ -490,7 +478,8 @@ class Ticker:
         return "paused"
 
     async def resume(self) -> str:
-        return await self.configure("auto")
+        """继续运行：回到「固定实时」档（原先回到「自动」，该档已删除）。"""
+        return await self.configure("online")
 
 
 ticker = Ticker()

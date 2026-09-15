@@ -22,7 +22,7 @@ from ..schemas.views import (
 )
 from ..sim.bus import bus
 from ..sim.env_agent import bj_today, maybe_pull_hot
-from ..sim.ticker import decide_mode, ticker
+from ..sim.ticker import ticker
 from ..sim.world import get_world
 from ..db import session_scope, write_lock, write_session
 from .deps import AdminGuard, SessionDep

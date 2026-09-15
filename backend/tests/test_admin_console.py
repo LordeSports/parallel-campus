@@ -103,7 +103,7 @@ async def test_simulation_intervals_and_mode_persist(admin_client, world):
     await login(admin_client)
     response = await admin_client.put("/api/admin/simulation", json={"mode": "online", "tick_seconds_online": 2, "tick_seconds_idle": 60})
     assert response.status_code == 200, response.text
-    assert decide_mode(0, world.state.admin_override, 0) == "online"
+    assert decide_mode(world.state.admin_override, 0) == "online"
     async with session_scope() as session:
         row = await session.get(WorldState, 1)
         assert row.admin_override == "online"
@@ -112,7 +112,8 @@ async def test_simulation_intervals_and_mode_persist(admin_client, world):
     assert settings.tick_seconds_online == 2
     assert (await admin_client.post("/api/admin/pause")).json()["mode"] == "paused"
     assert (await admin_client.post("/api/admin/resume")).status_code == 200
-    assert world.state.admin_override is None
+    # 已删除「自动」档：continue 回到显式的 online
+    assert world.state.admin_override == "online"
     assert (await admin_client.put("/api/admin/simulation", json={"mode": "online", "tick_seconds_online": 0})).status_code == 400
 
 
@@ -239,7 +240,9 @@ async def test_changed_world_can_run_next_tick(admin_client, world):
     assert world.state.remaining_ticks == 0
     async with session_scope() as session:
         saved = await session.get(WorldState, 1)
-        assert saved.tick == world.tick and saved.remaining_ticks == 0 and saved.admin_override is None
+        # 快进结束回到显式的 idle（原先回落到「自动」= admin_override None，该档已删除）
+        assert saved.tick == world.tick and saved.remaining_ticks == 0
+        assert saved.admin_override == "idle" and saved.speed_mode == "idle"
 
 
 @pytest.mark.asyncio

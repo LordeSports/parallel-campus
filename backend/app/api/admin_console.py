@@ -106,7 +106,7 @@ async def overview(_: AdminGuard, session: SessionDep) -> AdminOverviewView:
                                  .order_by(WorldEvent.start_tick.desc()).limit(100))).all()
     return AdminOverviewView(
         world=await world_state(session, None), status=await status(None, session),
-        control_mode=world.state.admin_override or "auto", counts=counts,
+        control_mode=world.state.admin_override or "idle", counts=counts,
         usage_by_model=list(groups.values()),
         recent_usage=[UsageItemView(id=r.id, at=r.at.isoformat() + "Z", model=r.model, tier=r.tier,
                                    template=r.template, prompt_tokens=r.prompt_tokens,
