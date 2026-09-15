@@ -1,7 +1,14 @@
-"""用户数据拉取与证据包（spec/06 §4）。"""
+"""用户数据拉取与证据包（spec/06 §4）。
+
+限速：7 个请求背靠背会触发知乎的 30001（频率限制），因此
+① 相邻请求之间强制至少 `zhihu_user_data_gap` 秒；
+② 命中 30001 时按 4 倍间隔退避并**重试一次**（spec「不重试」针对盲目重试，
+   这里是限流退避，属于调用方自行降级的范畴）。
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -14,6 +21,8 @@ from ..errors import ZhihuError
 from ..zhihu.client import ZhihuClientBase
 
 log = logging.getLogger("pc.zhihu.user_data")
+
+RATE_LIMITED_CODE = 30001
 
 EVIDENCE_MAX_CHARS = 6000
 # 超限截断配额：C 50% / S 25% / F 15% / L 10%
@@ -67,20 +76,39 @@ async def pull_user_data(
         "favlist_contents": [],
     }
     failed: list[str] = []
+    gap = max(0.0, float(settings.zhihu_user_data_gap))
+    backoff = gap * 4.0
+    # 相邻请求的最小间隔：每次发请求前把"下次允许发送的时刻"往后推 gap
+    next_ok = 0.0
+
+    async def _throttle(extra: float = 0.0) -> None:
+        nonlocal next_ok
+        loop = asyncio.get_running_loop()
+        now = loop.time()
+        wait = max(next_ok, now + extra) - now
+        if wait > 0:
+            await asyncio.sleep(wait)
+            now = loop.time()
+        next_ok = now + gap
 
     async def _try(name: str, path: str, params: dict[str, Any]) -> dict[str, Any] | None:
-        try:
-            data = await client.get("user_data", path, params, oauth_token=oauth_token)
-            return data
-        except ZhihuError as exc:
-            code = exc.zhihu_code if exc.zhihu_code is not None else "http"
-            failed.append(f"{name}:{code}")
-            log.info("用户数据拉取失败 %s: %s", name, exc)
-            return None
-        except Exception as exc:
-            failed.append(f"{name}:{type(exc).__name__.lower()}")
-            log.info("用户数据拉取异常 %s: %s", name, exc)
-            return None
+        for attempt in range(2):
+            await _throttle(extra=0.0 if attempt == 0 else backoff)
+            try:
+                return await client.get("user_data", path, params, oauth_token=oauth_token)
+            except ZhihuError as exc:
+                if exc.zhihu_code == RATE_LIMITED_CODE and attempt == 0:
+                    log.info("用户数据 %s 触发频率限制，%.1f 秒后重试一次", name, backoff)
+                    continue
+                code = exc.zhihu_code if exc.zhihu_code is not None else "http"
+                failed.append(f"{name}:{code}")
+                log.info("用户数据拉取失败 %s: %s", name, exc)
+                return None
+            except Exception as exc:
+                failed.append(f"{name}:{type(exc).__name__.lower()}")
+                log.info("用户数据拉取异常 %s: %s", name, exc)
+                return None
+        return None
 
     # 1. contents
     data = await _try("contents", "/api/v1/user/contents",

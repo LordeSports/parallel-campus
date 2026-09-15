@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     zhihu_oauth_redirect_uri: str = "http://localhost:8000/api/auth/zhihu/callback"
     zhihu_api_base: str = "https://developer.zhihu.com"
     zhihu_open_base: str = "https://openapi.zhihu.com"
+    # 用户数据是 7 个请求的连发，知乎对突发请求回 30001（频率限制）。
+    # 这里控制相邻请求的最小间隔（秒）；触发 30001 时按 4 倍间隔退避并重试一次。
+    zhihu_user_data_gap: float = 1.5
 
     # ── LLM ──
     # `llm_enabled=False` 时完全不调用 LLM：角色退回日程/规则行动，报告与对话跳过。

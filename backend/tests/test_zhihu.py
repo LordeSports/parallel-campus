@@ -215,6 +215,83 @@ def test_as_int_tolerates_garbage():
     assert _as_int(" 8 ") == 8
 
 
+# ─────────────── §4.3 用户数据限速（回归：背靠背 7 连发触发 30001） ───────────────
+
+
+class _ScriptedUserApi:
+    """按 path 模拟用户数据接口；记录调用时刻用于断言节流。"""
+
+    def __init__(self) -> None:
+        import asyncio
+
+        self.loop = asyncio
+        self.calls: list[tuple[str, float]] = []
+
+    async def get(self, api, path, params, **kw):  # noqa: ANN001, ANN003
+        self.calls.append((path, self.loop.get_running_loop().time()))
+        if path.endswith("/followees"):
+            page = sum(1 for p, _ in self.calls if p.endswith("/followees"))
+            if page == 1:
+                return {"Code": 0, "Data": {
+                    "Items": [{"Name": "甲"}],
+                    "Paging": {"IsEnd": False, "NextOffset": "50"},
+                }}
+            return {"Code": 0, "Data": {
+                "Items": [{"Name": "乙"}], "Paging": {"IsEnd": True},
+            }}
+        if path.endswith("/favlists"):
+            return {"Code": 0, "Data": {"Items": [
+                {"IsPublic": True, "UrlToken": "u1"},
+                {"IsPublic": True, "UrlToken": "u2"},
+            ]}}
+        return {"Code": 0, "Data": {"Items": [{"Title": "t"}]}}
+
+
+@pytest.mark.asyncio
+async def test_pull_user_data_paces_requests(monkeypatch):
+    """7 个请求必须被拉开：相邻间隔 ≥ gap（原来 0 间隔连发，知乎回 30001）。"""
+    import asyncio
+
+    from app.config import settings
+    from app.zhihu.user_data import pull_user_data
+
+    monkeypatch.setattr(settings, "zhihu_user_data_gap", 0.05)
+    client = _ScriptedUserApi()
+    out, failed = await pull_user_data(client, "tok-1")
+
+    assert len(client.calls) == 7, [p for p, _ in client.calls]
+    stamps = [t for _, t in client.calls]
+    gaps = [b - a for a, b in zip(stamps, stamps[1:])]
+    assert min(gaps) >= 0.04
+    assert not failed
+    assert out["favlists"] and len(out["followees"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_pull_user_data_retries_once_on_rate_limit(monkeypatch):
+    """30001 不是永久失败：退避后重试一次，成功就不进 failed。"""
+    from app.config import settings
+    from app.errors import ZhihuError
+    from app.zhihu.user_data import pull_user_data
+
+    monkeypatch.setattr(settings, "zhihu_user_data_gap", 0.0)
+
+    class _Flaky:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def get(self, api, path, params, **kw):  # noqa: ANN001, ANN003
+            self.calls += 1
+            if path.endswith("/favlists") and self.calls == 1:
+                raise ZhihuError("请求频率超限", zhihu_code=30001)
+            return {"Code": 0, "Data": {"Items": [{"IsPublic": True, "UrlToken": "u1"}]}}
+
+    client = _Flaky()
+    out, failed = await pull_user_data(client, "tok-2")
+    assert not any(f.startswith("favlists") for f in failed)
+    assert out["favlists"]
+
+
 # ─────────────── §4.2 证据包 ───────────────
 
 
