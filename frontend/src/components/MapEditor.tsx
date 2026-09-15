@@ -171,7 +171,10 @@ export default function MapEditor() {
       };
       commit((list) => [...list, obj]);
       setSelected(obj.id);
-      setMessage(`已放置「${placing.label}」`);
+      setMessage(`已放置「${placing.label}」，可拖动调整位置`);
+      // 放置一次就退出放置模式：否则 placing 一直为真，
+      // IsoMap 里 `if (placing) return` 会让后续所有拖动失效（无法拖动物体的根因）
+      setPlacing(null);
     },
     [commit, placing],
   );
