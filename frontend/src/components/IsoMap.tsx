@@ -142,6 +142,20 @@ function Defs() {
         <stop offset="70%" stopColor="#000" stopOpacity="0" />
         <stop offset="100%" stopColor="#3f4a3a" stopOpacity=".10" />
       </radialGradient>
+      {/* 墙面体积光：顶部提亮 + 根部压暗（叠在立面同形多边形上） */}
+      <linearGradient id="iso-wall-top" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity=".20" />
+        <stop offset="55%" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
+      <linearGradient id="iso-wall-base" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stopColor="#2f3340" stopOpacity=".18" />
+        <stop offset="50%" stopColor="#2f3340" stopOpacity="0" />
+      </linearGradient>
+      {/* 屋面高光（左上→右下） */}
+      <linearGradient id="iso-roof-shine" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity=".25" />
+        <stop offset="65%" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
       <filter id="iso-shadow" x="-30%" y="-30%" width="160%" height="180%">
         <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#64748b" floodOpacity=".22" />
       </filter>
@@ -164,6 +178,40 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
   const shape = wobblyPolygon(corners, seed, o.tw > 12 ? 2.2 : 1.4);
   const inner = quad(o.tx + 0.35, o.ty + 0.35, Math.max(0.5, o.tw - 0.7), Math.max(0.5, o.th - 0.7), rows);
 
+  // 细节散布（按 seed 稳定，不随渲染闪烁）
+  const rnd = seeded(seed + 31);
+  const tufts: React.ReactNode[] = [];
+  if (o.variant === 'grass') {
+    const n = Math.min(9, Math.max(3, Math.round(o.tw * o.th / 3)));
+    for (let i = 0; i < n; i++) {
+      const gp = toScreen(o.tx + 0.6 + rnd() * (o.tw - 1.2), o.ty + 0.6 + rnd() * (o.th - 1.2), rows);
+      tufts.push(
+        <path
+          key={`t${i}`}
+          d={`M${gp.x.toFixed(1)} ${gp.y.toFixed(1)} q-2 -3 -1.2 -5.5 M${(gp.x + 0.6).toFixed(1)} ${(gp.y - 0.6).toFixed(1)} q1.4 -2.6 2.6 -4`}
+          fill="none"
+          stroke={i % 3 === 0 ? '#7fb56e' : '#93c481'}
+          strokeWidth="1.1"
+          strokeLinecap="round"
+          opacity=".85"
+        />,
+      );
+    }
+  }
+  const lilies: React.ReactNode[] = [];
+  if (o.variant === 'water') {
+    for (let i = 0; i < Math.min(4, Math.round(o.tw * o.th / 5)); i++) {
+      const lp = toScreen(o.tx + 1 + rnd() * (o.tw - 2), o.ty + 1 + rnd() * (o.th - 2), rows);
+      const r = 2.6 + rnd() * 1.8;
+      lilies.push(
+        <g key={`l${i}`}>
+          <ellipse cx={lp.x} cy={lp.y} rx={r} ry={r * 0.55} fill="#9fce7e" />
+          <ellipse cx={lp.x} cy={lp.y - 1.2} rx={r * 0.8} ry={r * 0.42} fill="#b7dc95" />
+        </g>,
+      );
+    }
+  }
+
   return (
     <g>
       {/* 底缘微阴影：让地面块有厚度感 */}
@@ -172,9 +220,10 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
       <path d={shape} fill={`url(#${GROUND_TEXTURE_ID[o.variant] ?? 'tex-grass'})`} opacity=".85" />
       {o.variant === 'water' && (
         <>
+          {/* 岸线泡沫：内侧一圈浅色 */}
+          <path d={wobblyPolygon(inner, seed + 3, 2)} fill="none" stroke="#e9f8fd" strokeWidth="2.4" opacity=".6" />
           {/* 水面高光：随波纹缓慢移动 */}
           <g className="iso-ripple">
-            <path d={wobblyPolygon(inner, seed + 3, 2)} fill="none" stroke="#e8f8fd" strokeWidth="1.6" opacity=".55" />
             <path
               d={wobblyPolygon(
                 quad(o.tx + 1, o.ty + 1, Math.max(1, o.tw - 2), Math.max(1, o.th - 2), rows),
@@ -184,27 +233,49 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
               fill="none"
               stroke="#ffffff"
               strokeWidth="1"
-              opacity=".35"
+              opacity=".38"
             />
           </g>
+          {lilies}
         </>
       )}
+      {tufts}
       {o.variant === 'field_track' && (
-        <path
-          d={pathOf([
-            toScreen(o.tx + 0.7, o.ty + 0.7, rows),
-            toScreen(o.tx + o.tw - 0.7, o.ty + 0.7, rows),
-            toScreen(o.tx + o.tw - 0.7, o.ty + o.th - 0.7, rows),
-            toScreen(o.tx + 0.7, o.ty + o.th - 0.7, rows),
-          ])}
-          fill="#cfe0b4"
-          stroke="#f2f5f7"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
+        <>
+          {/* 跑道分道线（等距方向的三条白线） */}
+          {[0.32, 0.5, 0.68].map((f, i) => (
+            <path
+              key={`lane${i}`}
+              d={polylinePath([
+                toScreen(o.tx + o.tw * f, o.ty + 0.5, rows),
+                toScreen(o.tx + o.tw * f, o.ty + o.th - 0.5, rows),
+              ])}
+              fill="none"
+              stroke="#f8fafc"
+              strokeWidth="1.6"
+              strokeDasharray="10 7"
+              opacity=".55"
+            />
+          ))}
+          <path
+            d={pathOf([
+              toScreen(o.tx + 0.7, o.ty + 0.7, rows),
+              toScreen(o.tx + o.tw - 0.7, o.ty + 0.7, rows),
+              toScreen(o.tx + o.tw - 0.7, o.ty + o.th - 0.7, rows),
+              toScreen(o.tx + 0.7, o.ty + o.th - 0.7, rows),
+            ])}
+            fill="#cfe0b4"
+            stroke="#f2f5f7"
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+        </>
       )}
       {o.variant === 'plaza' && (
-        <path d={pathOf(inner)} fill="#ffffff" opacity=".14" />
+        <>
+          <path d={pathOf(inner)} fill="#ffffff" opacity=".14" />
+          <path d={pathOf(inner)} fill="none" stroke="#ffffff" strokeWidth="1.4" opacity=".3" />
+        </>
       )}
     </g>
   );
@@ -212,21 +283,77 @@ function GroundBlock({ o, rows }: { o: MapObjectView; rows: number }) {
 
 // ─────────────────────────── 建筑 ───────────────────────────
 
+/** 窗：外框 + 玻璃 + 竖棂 + 窗台。dim=true 时是背光面（右立面），整体更暗。 */
+function WindowShape({ pts, dim, lit, flicker, delay }: {
+  pts: Pt[]; dim?: boolean; lit: boolean; flicker: boolean; delay: number;
+}) {
+  const cx = pts.reduce((m, p) => m + p.x, 0) / pts.length;
+  const cy = pts.reduce((m, p) => m + p.y, 0) / pts.length;
+  const grow = (f: number): Pt[] => pts.map((p) => ({ x: cx + (p.x - cx) * f, y: cy + (p.y - cy) * f }));
+  const glass = lit ? '#ffe3ad' : dim ? '#cdd8e4' : '#e8f1fb';
+  const edge = lit ? '#e3b26a' : dim ? '#a7b6c6' : '#b9cfe4';
+  const [p0, , p2, p3] = pts;
+  return (
+    <g>
+      <path d={pathOf(grow(1.3))} fill={lit ? '#f6e9cd' : '#f4f1e8'} stroke="#00000022" strokeWidth=".4" />
+      <path
+        d={pathOf(pts)}
+        className={flicker ? 'iso-flicker' : undefined}
+        fill={glass}
+        stroke={edge}
+        strokeWidth=".55"
+        opacity={lit ? 0.86 : dim ? 0.72 : 0.8}
+        style={flicker ? { animationDelay: `${delay}s` } : undefined}
+      />
+      {/* 竖棂 */}
+      <path
+        d={polylinePath([
+          { x: (p0.x + pts[1].x) / 2, y: (p0.y + pts[1].y) / 2 },
+          { x: (p3.x + p2.x) / 2, y: (p3.y + p2.y) / 2 },
+        ])}
+        stroke={lit ? '#e0c68f' : '#dfe9f2'}
+        strokeWidth=".7"
+        opacity=".85"
+      />
+      {/* 窗台（只给受光面） */}
+      {!dim && (
+        <path
+          d={polylinePath([{ x: p3.x - 1.2, y: p3.y + 1 }, { x: p2.x + 1.2, y: p2.y + 1 }])}
+          stroke="#fbf8f0"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          opacity=".9"
+        />
+      )}
+    </g>
+  );
+}
+
 function BuildingShape({ o, rows }: { o: MapObjectView; rows: number }) {
   const st = BUILDING_STYLE[o.variant] ?? BUILDING_STYLE.main;
   const h = Math.max(0, o.height ?? 0) * WALL_UNIT;
   const seed = Number(o.props?.seed ?? 5);
   const [n, e, s, w] = quad(o.tx, o.ty, o.tw, o.th, rows);
 
-  const nh = up(n, h);
   const eh = up(e, h);
   const sh = up(s, h);
   const wh = up(w, h);
 
-  // 可见的两个立面：西南（w→s）与东南（s→e）
+  // 可见的两个立面：西南（w→s）受光，东南（s→e）背光
   const leftWall = pathOf([w, s, sh, wh]);
   const rightWall = pathOf([s, e, eh, sh]);
-  // 侧面竖向纹理线（楼层感）
+  const footprint = pathOf([n, e, s, w]);
+
+  // 日光来自左上 → 往东南投出斜影（比平移整个脚印更像"被晒着"）
+  const cast = Math.min(30, 7 + h * 0.5);
+  const castShadow = pathOf([
+    s,
+    e,
+    { x: e.x + cast * 0.85, y: e.y + cast * 0.5 },
+    { x: s.x + cast * 0.85, y: s.y + cast * 0.5 },
+  ]);
+
+  // 楼层线
   const floorLines: string[] = [];
   const floors = Math.max(1, Math.round((o.height ?? 0)));
   for (let i = 1; i < floors; i++) {
@@ -234,124 +361,198 @@ function BuildingShape({ o, rows }: { o: MapObjectView; rows: number }) {
     floorLines.push(polylinePath([up(w, dy), up(s, dy)]));
     floorLines.push(polylinePath([up(s, dy), up(e, dy)]));
   }
-  // 窗（沿两个立面均分）
-  const windows: Pt[][] = [];
+
+  // 窗：两个立面都开（右立面背光）。门占右立面靠 s 端，一楼门附近留空。
+  const rnd = seeded(seed);
+  const windows: { pts: Pt[]; dim: boolean; lit: boolean; flicker: boolean; delay: number }[] = [];
   const cols = Math.max(1, Math.round(o.tw / 1.6));
   for (let i = 0; i < cols; i++) {
-    const t0 = (i + 0.3) / cols;
-    const t1 = (i + 0.7) / cols;
+    const t0 = (i + 0.28) / cols;
+    const t1 = (i + 0.72) / cols;
     for (let f = 0; f < Math.max(1, floors - 1); f++) {
-      const y0 = up({ x: 0, y: 0 }, (h * (f + 0.25)) / floors).y;
-      const y1 = up({ x: 0, y: 0 }, (h * (f + 0.75)) / floors).y;
-      windows.push([
-        { x: w.x + (s.x - w.x) * t0, y: w.y + (s.y - w.y) * t0 + (y0 + 0) },
-        { x: w.x + (s.x - w.x) * t1, y: w.y + (s.y - w.y) * t1 + y0 },
-        { x: w.x + (s.x - w.x) * t1, y: w.y + (s.y - w.y) * t1 + y1 },
-        { x: w.x + (s.x - w.x) * t0, y: w.y + (s.y - w.y) * t0 + y1 },
-      ]);
+      const y0 = up({ x: 0, y: 0 }, (h * (f + 0.28)) / floors).y;
+      const y1 = up({ x: 0, y: 0 }, (h * (f + 0.72)) / floors).y;
+      // 左立面（受光）
+      windows.push({
+        pts: [
+          { x: w.x + (s.x - w.x) * t0, y: w.y + (s.y - w.y) * t0 + y0 },
+          { x: w.x + (s.x - w.x) * t1, y: w.y + (s.y - w.y) * t1 + y0 },
+          { x: w.x + (s.x - w.x) * t1, y: w.y + (s.y - w.y) * t1 + y1 },
+          { x: w.x + (s.x - w.x) * t0, y: w.y + (s.y - w.y) * t0 + y1 },
+        ],
+        dim: false,
+        lit: rnd() < 0.7,
+        flicker: false,
+        delay: 0,
+      });
+      // 右立面（背光）
+      const r0 = (i + 0.34) / cols;
+      const r1 = (i + 0.78) / cols;
+      const besideDoor = f === 0 && r0 < 0.5;
+      if (!besideDoor) {
+        windows.push({
+          pts: [
+            { x: s.x + (e.x - s.x) * r0, y: s.y + (e.y - s.y) * r0 + y0 },
+            { x: s.x + (e.x - s.x) * r1, y: s.y + (e.y - s.y) * r1 + y0 },
+            { x: s.x + (e.x - s.x) * r1, y: s.y + (e.y - s.y) * r1 + y1 },
+            { x: s.x + (e.x - s.x) * r0, y: s.y + (e.y - s.y) * r0 + y1 },
+          ],
+          dim: true,
+          lit: rnd() < 0.35,
+          flicker: false,
+          delay: 0,
+        });
+      }
     }
   }
+  windows.forEach((win, i) => {
+    win.flicker = win.lit && !win.dim && rnd() < 0.22;
+    win.delay = (i % 5) * 0.9;
+  });
 
-  const rnd = seeded(seed);
-
-  // 门：位于面向观察者的右立面（s→e 棱）靠 s 端
-  const doorT = 0.18;
-  const doorW = 0.16;
+  // 门（右立面靠 s 端）+ 台阶 + 雨棚 + 门牌
+  const doorT = 0.14;
+  const doorW = 0.2;
   const doorH = Math.min(h * 0.62, 34);
   const ds = { x: s.x + (e.x - s.x) * doorT, y: s.y + (e.y - s.y) * doorT };
   const de = { x: s.x + (e.x - s.x) * (doorT + doorW), y: s.y + (e.y - s.y) * (doorT + doorW) };
-  const door = pathOf([
-    ds,
-    de,
-    { x: de.x, y: de.y - doorH },
-    { x: ds.x, y: ds.y - doorH },
-  ]);
-  // 门口台阶
+  const door = pathOf([ds, de, { x: de.x, y: de.y - doorH }, { x: ds.x, y: ds.y - doorH }]);
   const step = pathOf([
     { x: ds.x - 3, y: ds.y + 3 },
     { x: de.x + 3, y: de.y + 3 },
-    { x: de.x + 5, y: de.y + 5.5 },
-    { x: ds.x - 5, y: ds.y + 5.5 },
+    { x: de.x + 5.5, y: de.y + 6 },
+    { x: ds.x - 5.5, y: ds.y + 6 },
   ]);
+  // 雨棚：门顶向外挑出的小斜面
+  const canopy = pathOf([
+    { x: ds.x - 5, y: ds.y - doorH - 1 },
+    { x: de.x + 5, y: de.y - doorH - 1 },
+    { x: de.x + 8, y: de.y - doorH + 2.5 },
+    { x: ds.x + 2.5, y: ds.y - doorH + 2.5 },
+  ]);
+  // 门牌（screen 空间小吊牌，有名字才画）
+  const signName = (o.name ?? '').trim().slice(0, 6);
+  const signX = (ds.x + de.x) / 2;
+  const signY = (ds.y + de.y) / 2 - doorH - 9;
+  const signW = Math.max(30, signName.length * 9.2 + 12);
+
+  // 屋顶出檐：从中心外扩 6% → 屋顶比墙头大一圈，形成挑檐。
+  // 注意：屋顶多边形必须抬到 h（墙头高度），否则会盖住墙体、建筑看起来像平板。
+  const grow = (f: number): Pt[] => {
+    const c = { x: (n.x + s.x) / 2, y: (n.y + s.y) / 2 };
+    return [n, e, s, w].map((p) => ({ x: c.x + (p.x - c.x) * f, y: c.y + (p.y - c.y) * f }));
+  };
+  const [N, E, S, W] = grow(1.06);
+  const roofPlane = pathOf([up(N, h), up(E, h), up(S, h), up(W, h)]);
+  const roofCenter = up({ x: (n.x + s.x) / 2, y: (n.y + s.y) / 2 }, h);
 
   return (
     <g>
-      {/* 影子 */}
-      <path d={pathOf([n, e, s, w])} fill="#64748b" opacity=".16" transform="translate(3 5)" />
-      {/* 立面 */}
-      <path d={leftWall} fill={st.left} />
-      <path d={rightWall} fill={st.right} />
-      {/* 立面根部压暗：增强落地感 */}
-      <path d={pathOf([w, s, e, { x: e.x, y: e.y - Math.min(10, h * 0.3) }, { x: w.x, y: w.y - Math.min(10, h * 0.3) }])} fill="#000" opacity=".05" />
+      {/* 投影（日光左上）+ 地面接触阴影 */}
+      <path d={castShadow} fill="#5b6355" opacity=".14" />
+      <path d={footprint} fill="#5b6355" opacity=".10" transform="translate(2 3)" />
+
+      {/* 墙角柱（浅色竖条，勾出体块） */}
+      <path d={polylinePath([w, wh])} stroke="#ffffff" strokeWidth="2.4" opacity=".28" strokeLinecap="round" />
+      <path d={polylinePath([s, sh])} stroke="#ffffff" strokeWidth="2.8" opacity=".35" strokeLinecap="round" />
+      <path d={polylinePath([e, eh])} stroke="#000000" strokeWidth="2" opacity=".10" strokeLinecap="round" />
+
+      {/* 立面 + 体积光（顶亮根暗，同形渐变叠加） */}
+      <path d={leftWall} fill={st.left} stroke={st.roofEdge} strokeWidth=".6" strokeOpacity=".5" />
+      <path d={rightWall} fill={st.right} stroke={st.roofEdge} strokeWidth=".6" strokeOpacity=".5" />
+      <path d={leftWall} fill="url(#iso-wall-top)" />
+      <path d={rightWall} fill="url(#iso-wall-top)" />
+      <path d={leftWall} fill="url(#iso-wall-base)" />
+      <path d={rightWall} fill="url(#iso-wall-base)" />
       <path d={polylinePath([up(w, h), up(s, h), up(e, h)])} fill="none" stroke={st.trim} strokeWidth="2" opacity=".7" />
       {floorLines.map((d, i) => (
         <path key={`f${i}`} d={d} fill="none" stroke="#000" strokeOpacity=".06" strokeWidth="1" />
       ))}
-      {/* 窗：暖光 + 少数窗呼吸闪烁 */}
-      {windows.map((p, i) => {
-        const lit = rnd() < 0.72;
-        const flicker = lit && rnd() < 0.22;
-        return (
-          <path
-            key={`w${i}`}
-            d={pathOf(p)}
-            className={flicker ? 'iso-flicker' : undefined}
-            fill={lit ? '#ffe3a6' : '#e8f1fb'}
-            opacity={lit ? 0.85 : 0.55}
-            stroke={lit ? '#e8b968' : '#b9cfe4'}
-            strokeWidth=".6"
-            style={flicker ? { animationDelay: `${(i % 5) * 0.9}s` } : undefined}
-          />
-        );
-      })}
-      {/* 门 + 台阶 */}
+
+      {/* 窗 */}
+      {windows.map((win, i) => (
+        <WindowShape key={`w${i}`} {...win} />
+      ))}
+
+      {/* 门 + 台阶 + 雨棚 */}
       <path d={step} fill="#cfc9bd" opacity=".9" />
       <path d={door} fill="#7a6650" stroke="#5f5040" strokeWidth="1" />
       <path d={polylinePath([{ x: de.x - 2, y: (de.y + ds.y) / 2 - doorH * 0.45 }, { x: de.x - 2, y: (de.y + ds.y) / 2 - doorH * 0.15 }])} stroke="#e8d9b0" strokeWidth="1.6" strokeLinecap="round" />
-      {/* 屋顶 */}
+      <path d={canopy} fill={st.trim} opacity=".92" stroke={st.roofEdge} strokeWidth=".8" strokeOpacity=".5" />
+      {signName && (
+        <g style={{ pointerEvents: 'none' }}>
+          <rect x={signX - signW / 2} y={signY - 6} width={signW} height="12" rx="3" fill="#f7f0dd" stroke="#c8ab86" strokeWidth=".8" />
+          <text x={signX} y={signY + 2.5} textAnchor="middle" fontSize="7.5" fill="#5b4a35">
+            {signName}
+          </text>
+        </g>
+      )}
+
+      {/* 屋顶（抬到墙头高度；外扩一圈形成挑檐） */}
       {st.roofKind === 'gable' ? (
         <>
           {(() => {
-            const m1 = mid(n, e);
-            const m2 = mid(w, s);
-            const lift = h * 0.42;
+            // 关键：檐口四角必须先抬到墙头 h，否则屋顶会画在地面、把墙体盖住
+            const Nh = up(N, h);
+            const Eh = up(E, h);
+            const Sh = up(S, h);
+            const Wh = up(W, h);
+            const m1 = mid(Nh, Eh);
+            const m2 = mid(Wh, Sh);
+            const lift = h * 0.4 + 6;
             const m1h = up(m1, lift);
             const m2h = up(m2, lift);
             return (
               <>
-                <path d={pathOf([n, m1, m1h, m2h, m2, w])} fill={st.roof} />
-                <path d={pathOf([m1, e, s, m2, m2h, m1h])} fill={st.roofEdge} />
-                <path d={polylinePath([wh, m2h, m1h, eh])} fill="none" stroke={st.trim} strokeWidth="2" opacity=".85" />
+                {/* 两个坡面（受光 / 背光） */}
+                <path d={pathOf([Nh, m1, m1h, m2h, m2, Wh])} fill={st.roof} />
+                <path d={pathOf([m1, Eh, Sh, m2, m2h, m1h])} fill={st.roofEdge} />
+                {/* 屋面整体高光 */}
+                <path d={pathOf([Nh, Eh, Sh, Wh])} fill="url(#iso-roof-shine)" />
+                {/* 檐口线（沿屋脊与两端山墙） */}
+                <path d={polylinePath([Wh, m2h, m1h, Eh])} fill="none" stroke={st.trim} strokeWidth="2.4" opacity=".9" />
+                {/* 背光坡面的屋脊高光 */}
+                <path d={polylinePath([m2h, m1h])} fill="none" stroke="#ffffff" strokeWidth="1.4" opacity=".35" />
+                {/* 山墙小圆通风口（贴在背光坡面上） */}
+                <circle
+                  cx={m2h.x + (m1h.x - m2h.x) * 0.28}
+                  cy={m2h.y + (m1h.y - m2h.y) * 0.28 + lift * 0.42}
+                  r="2"
+                  fill="#ffffff"
+                  opacity=".45"
+                />
               </>
             );
           })()}
         </>
       ) : st.roofKind === 'dome' ? (
         <>
-          <path d={pathOf([w, s, e, n])} fill={st.roofEdge} />
-          <ellipse
-            cx={mid(w, e).x}
-            cy={up(mid(w, e), h * 0.5).y}
-            rx={Math.abs(e.x - w.x) / 2.1}
-            ry={TILE_H * 0.9}
-            fill={st.roof}
-          />
+          {/* 挑檐裙边 + 穹顶 */}
+          <path d={roofPlane} fill={st.roofEdge} />
+          <path d={roofPlane} fill="url(#iso-roof-shine)" />
+          <ellipse cx={mid(W, E).x} cy={up(mid(W, E), h + TILE_H * 0.5).y} rx={Math.abs(E.x - W.x) / 2.2} ry={TILE_H * 0.95} fill={st.roof} />
+          <ellipse cx={mid(W, E).x - Math.abs(E.x - W.x) * 0.09} cy={up(mid(W, E), h + TILE_H * 0.8).y} rx={Math.abs(E.x - W.x) / 5.5} ry={TILE_H * 0.2} fill="#ffffff" opacity=".32" />
+          <circle cx={mid(W, E).x} cy={up(mid(W, E), h + TILE_H * 1.45).y} r="2.2" fill={st.trim} />
         </>
       ) : (
         <>
-          <path d={pathOf([w, s, e, n])} fill={st.roof} />
-          <path d={pathOf([wh, sh, eh, nh])} fill={st.roof} stroke={st.roofEdge} strokeWidth="1.4" />
-          {/* 女儿墙 / 屋顶设备 */}
-          <path
-            d={pathOf([
-              { x: wh.x + (sh.x - wh.x) * 0.3, y: wh.y + (sh.y - wh.y) * 0.3 - 6 },
-              { x: nh.x + (eh.x - nh.x) * 0.55, y: nh.y + (eh.y - nh.y) * 0.55 - 6 },
-              { x: nh.x + (eh.x - nh.x) * 0.55, y: nh.y + (eh.y - nh.y) * 0.55 - 1 },
-              { x: wh.x + (sh.x - wh.x) * 0.3, y: wh.y + (sh.y - wh.y) * 0.3 - 1 },
-            ])}
-            fill="#ffffff"
-            opacity=".38"
-          />
+          {/* 平顶 + 檐口线 */}
+          <path d={roofPlane} fill={st.roof} stroke={st.roofEdge} strokeWidth="1.6" />
+          <path d={roofPlane} fill="url(#iso-roof-shine)" />
+          {/* 屋面机房 + 天线（放在屋面中部，避免顶到檐口） */}
+          {(() => {
+            const bw = Math.max(10, o.tw * 1.35);
+            const bh2 = 11 + rnd() * 6;
+            const bx = { x: roofCenter.x - bw * 0.25, y: roofCenter.y + bw * 0.2 };
+            return (
+              <>
+                <path d={pathOf([bx, { x: bx.x + bw, y: bx.y + bw * 0.5 }, { x: bx.x + bw, y: bx.y + bw * 0.5 - bh2 }, { x: bx.x, y: bx.y - bh2 }])} fill={st.roofEdge} />
+                <path d={pathOf([{ x: bx.x, y: bx.y - bh2 }, { x: bx.x + bw / 2, y: bx.y + bw * 0.25 - bh2 - 3 }, { x: bx.x + bw, y: bx.y + bw * 0.5 - bh2 }])} fill={st.roof} />
+                <path d={polylinePath([{ x: bx.x + bw * 0.5, y: bx.y + bw * 0.25 - bh2 - 3 }, { x: bx.x + bw * 0.5, y: bx.y + bw * 0.25 - bh2 - 13 }])} stroke={st.roofEdge} strokeWidth="1" />
+                <circle cx={bx.x + bw * 0.5} cy={bx.y + bw * 0.25 - bh2 - 13} r="1.4" fill={st.trim} />
+              </>
+            );
+          })()}
         </>
       )}
     </g>
@@ -367,28 +568,55 @@ function PropShape({ o, rows }: { o: MapObjectView; rows: number }) {
   const shadow = <ellipse cx={p.x + 2} cy={p.y + 3} rx={13 * (o.tw / 1.4)} ry={5} fill="#64748b" opacity=".16" />;
 
   switch (o.variant) {
-    case 'tree':
+    case 'tree': {
+      const R = 15 + rnd() * 4;
       return (
         <g>
-          {shadow}
+          <ellipse cx={p.x + 4} cy={p.y + 4} rx={R * 0.95} ry={R * 0.42} fill="#5b6355" opacity=".18" />
           <g className="iso-sway" style={{ animationDelay: `${(seed % 7) * 0.32}s` }}>
-            <rect x={p.x - 2.6} y={p.y - 12} width="5.2" height="13" rx="2.4" fill={PROP_COLORS.treeTrunk} />
-            <circle cx={p.x} cy={p.y - 26} r="14.5" fill={PROP_COLORS.treeLeaf} />
-            <circle cx={p.x + 8} cy={p.y - 32} r="10" fill={PROP_COLORS.treeLeafAlt} />
-            <circle cx={p.x - 8} cy={p.y - 30} r="9" fill={PROP_COLORS.treeLeafAlt} opacity=".9" />
-            <circle cx={p.x + 1} cy={p.y - 34} r="5.5" fill="#ffffff" opacity=".22" />
+            {/* 树干：根部展宽的梯形 + 两根分叉 */}
+            <path
+              d={`M${p.x - 1.6} ${p.y + 2} L${p.x - 3.4} ${p.y - 13} L${p.x + 3.4} ${p.y - 13} L${p.x + 1.6} ${p.y + 2} Z`}
+              fill={PROP_COLORS.treeTrunk}
+            />
+            <path
+              d={`M${p.x} ${p.y - 10} q-5 -3 -8 -8 M${p.x} ${p.y - 12} q5 -4 7 -9`}
+              fill="none"
+              stroke="#9a7354"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+            {/* 冠层：暗底 → 主冠 → 副冠 → 高光 → 底部缺口 */}
+            <circle cx={p.x + 2.5} cy={p.y - 24} r={R} fill="#6ba06b" />
+            <circle cx={p.x} cy={p.y - 26} r={R} fill={PROP_COLORS.treeLeaf} />
+            <circle cx={p.x + 7} cy={p.y - 31} r={R * 0.66} fill={PROP_COLORS.treeLeafAlt} />
+            <circle cx={p.x - 7.5} cy={p.y - 29} r={R * 0.58} fill={PROP_COLORS.treeLeafAlt} opacity=".92" />
+            <circle cx={p.x + 1} cy={p.y - 33} r={R * 0.42} fill="#ffffff" opacity=".28" />
+            <path d={`M${p.x - R * 0.7} ${p.y - 18} q3 3 6 0 q3 3 6 0`} fill="none" stroke={PROP_COLORS.treeLeaf} strokeWidth="2" opacity=".8" />
           </g>
         </g>
       );
+    }
     case 'pine': {
-      const h = 30 + rnd() * 8;
+      const tier = (cy: number, w: number) => pathOf([
+        { x: p.x, y: cy - w * 0.62 },
+        { x: p.x + w, y: cy + w * 0.06 },
+        { x: p.x + w * 0.55, y: cy + w * 0.02 },
+        { x: p.x + w * 0.42, y: cy + w * 0.32 },
+        { x: p.x, y: cy + w * 0.1 },
+        { x: p.x - w * 0.42, y: cy + w * 0.32 },
+        { x: p.x - w * 0.55, y: cy + w * 0.02 },
+        { x: p.x - w, y: cy + w * 0.06 },
+      ]);
       return (
         <g>
-          {shadow}
+          <ellipse cx={p.x + 3.5} cy={p.y + 4} rx={13} ry={4.6} fill="#5b6355" opacity=".18" />
           <g className="iso-sway" style={{ animationDelay: `${(seed % 5) * 0.4}s` }}>
-            <rect x={p.x - 2.4} y={p.y - 10} width="4.8" height="11" rx="2" fill={PROP_COLORS.treeTrunk} />
-            <path d={pathOf([{ x: p.x, y: p.y - h - 14 }, { x: p.x + 12, y: p.y - h * 0.55 }, { x: p.x - 12, y: p.y - h * 0.55 }])} fill={PROP_COLORS.pineLeaf} />
-            <path d={pathOf([{ x: p.x, y: p.y - h }, { x: p.x + 14, y: p.y - h * 0.3 }, { x: p.x - 14, y: p.y - h * 0.3 }])} fill={PROP_COLORS.pineLeafAlt} />
+            <path d={`M${p.x - 1.6} ${p.y + 2} L${p.x - 2.8} ${p.y - 12} L${p.x + 2.8} ${p.y - 12} L${p.x + 1.6} ${p.y + 2} Z`} fill={PROP_COLORS.treeTrunk} />
+            <path d={tier(p.y - 14, 14)} fill={PROP_COLORS.pineLeaf} />
+            <path d={tier(p.y - 24, 11)} fill={PROP_COLORS.pineLeafAlt} />
+            <path d={tier(p.y - 33, 8)} fill={PROP_COLORS.pineLeaf} />
+            <path d={`M${p.x - 3} ${p.y - 31} q3 -2 5 0`} fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".35" />
           </g>
         </g>
       );
@@ -488,14 +716,23 @@ function Character({ c, x, y, onPick }: { c: CharacterSummaryView; x: number; y:
       style={{ cursor: onPick ? 'pointer' : 'default' }}
     >
       <ellipse cx="0" cy="3" rx="11" ry="4" fill="#64748b" opacity=".2" />
+      {/* 我的分身：脚下呼吸光圈 */}
+      {c.is_me && (
+        <ellipse cx="0" cy="3" rx="15" ry="5.5" fill="none" stroke={PROP_COLORS.meRing} strokeWidth="1.6" className="iso-glow" />
+      )}
       <g className="iso-bob" style={{ animationDelay: `${phase}s` }}>
-        {/* 身体 */}
+        {/* 身体：白描边让角色在任何底色上都"跳出来" */}
         <path
           d="M-6 -14 q0 -6 6 -6 q6 0 6 6 l0 14 q0 3 -3 3 l-6 0 q-3 0 -3 -3 Z"
           fill={ring}
-          opacity=".92"
+          stroke="#ffffff"
+          strokeWidth="1.1"
+          strokeOpacity=".75"
+          opacity=".95"
         />
         <path d="M-6 -8 q6 3 12 0" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".45" />
+        {/* 领口 */}
+        <path d="M-3 -13 q3 2.4 6 0" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity=".6" strokeLinecap="round" />
         {/* 头 */}
         <circle cx="0" cy="-20" r="9.5" fill={meta.bg} stroke={ring} strokeWidth={c.is_me ? 2.6 : 1.8} />
         <text textAnchor="middle" y="-16.5" fontSize="9.5" className="emoji" style={{ pointerEvents: 'none' }}>

@@ -135,6 +135,24 @@ python scripts/dump_openapi.py && python scripts/gen_ts_types.py
 
 ### 校园地图：接口与需求演进
 
+#### 改地图视觉时怎么立刻看到效果
+
+不用起后端、不用开浏览器手动点：
+
+```bash
+cd frontend
+node scripts/render_map_preview.mjs
+# 生成 frontend/preview/：campus.html（全景 + 各建筑特写）、solo_*.html（单栋隔离）
+```
+
+它用 esbuild + `react-dom/server` 把 `IsoMap` 离屏渲成静态 SVG（含雨/晴对比、
+图书馆与教学楼特写、以及只有一栋楼的隔离视图），拿浏览器打开就能看。
+**等距渲染最容易犯的错误是漏了 `up(..., height)`**——屋顶/装饰画在地面高度会把墙体盖住，
+建筑的立面只剩一条缝。隔离视图对这个错误最敏感，改屋顶几何时先看它。
+
+> 已踩过两次：平顶的 `roofBase` 忘了抬升、双坡只抬了屋脊没抬檐口。
+> 现在两者都基于抬到 `h` 的角点（`roofPlane` / `Nh..Wh`）。
+
 | 端点 | 说明 |
 |---|---|
 | `GET /api/world/map` | 所有登录玩家读取地图（含 `version`），前端按版本失效 |

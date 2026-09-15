@@ -39,3 +39,6 @@ frontend/.vite/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 地图离屏预览产物（scripts/render_map_preview.mjs 生成）
+frontend/preview/
