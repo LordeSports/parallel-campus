@@ -37,8 +37,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!ready || (loading && !user)) return <FullScreen text="正在进入校园…" />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
 
-  // 已登录但未完成人格/投放：除 /persona 外一律回 /persona（spec/07 §1）
-  const needPersona = !user.has_persona || !user.character_id;
+  // 玩家：未完成人格/投放则回 /persona（spec/07 §1）；
+  // 观察者不需要人格与分身，直接留在校园里看世界
+  const needPersona =
+    user.role !== 'observer' && (!user.has_persona || !user.character_id);
   if (needPersona && location.pathname !== '/persona') {
     return <Navigate to="/persona" replace />;
   }

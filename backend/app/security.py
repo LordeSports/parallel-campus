@@ -79,9 +79,26 @@ def verify_admin_session(token: str | None) -> str | None:
     return settings.admin_username
 
 
-def sign_oauth_state() -> str:
-    state = secrets.token_urlsafe(32)
-    return _serializer(OAUTH_STATE_SALT).dumps({"s": state})
+def sign_oauth_state(role: str | None = None) -> str:
+    """签名 state。可顺带带上登录页选的身份——回调时无需额外请求即可拿到。
+
+    state 本身已签名，塞进 payload 的 role 不可被篡改。
+    """
+    payload: dict[str, Any] = {"s": secrets.token_urlsafe(32)}
+    if role in ("player", "observer"):
+        payload["role"] = role
+    return _serializer(OAUTH_STATE_SALT).dumps(payload)
+
+
+def oauth_state_role(cookie_value: str | None) -> str | None:
+    """从 state cookie 里取登录页选的身份；取不到返回 None。"""
+    if not cookie_value:
+        return None
+    data = _state_payload(cookie_value)
+    if not data:
+        return None
+    role = data.get("role")
+    return role if role in ("player", "observer") else None
 
 
 def _state_payload(value: str) -> dict[str, Any] | None:
@@ -234,7 +251,7 @@ def dumps_json(obj: Any) -> str:
 __all__ = [
     "SESSION_COOKIE", "OAUTH_STATE_COOKIE", "SESSION_MAX_AGE", "OAUTH_STATE_MAX_AGE",
     "sign_session", "verify_session", "sign_oauth_state", "verify_oauth_state",
-    "diagnose_oauth_state",
+    "diagnose_oauth_state", "oauth_state_role",
     "sign_admin_session", "verify_admin_session",
     "encrypt_token", "decrypt_token", "redact", "sha1_short", "check_admin_token",
     "dumps_json",

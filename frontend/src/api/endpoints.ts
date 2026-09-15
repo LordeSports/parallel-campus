@@ -10,6 +10,7 @@ import type {
   ActiveEventView,
   AdminOverviewView,
   AdminSessionView,
+  InterviewView,
   AdminWeatherRequest,
   ApiSettingsRequest,
   ApiSettingsView,
@@ -77,7 +78,10 @@ export interface OauthLogView {
 export const authApi = {
   me: () => http.get<UserView>('/api/auth/me'),
   logout: () => http.post<void>('/api/auth/logout'),
-  devLogin: (name: string) => http.post<UserView>('/api/auth/dev-login', { name }),
+  devLogin: (name: string, role: 'player' | 'observer' = 'player') =>
+    http.post<UserView>('/api/auth/dev-login', { name, role }),
+  /** 切换身份：observer 看世界，player 投放分身 */
+  setRole: (role: 'player' | 'observer') => http.put<UserView>('/api/auth/role', { role }),
   /** 仅在 DEV_MODE 下可用；其余情况返回 404 */
   oauthLog: () => http.get<OauthLogView>('/api/auth/oauth-log'),
   /** 级联删除账号（US-14） */
@@ -89,6 +93,14 @@ export const authApi = {
 export const personaApi = {
   get: () => http.get<PersonaResponse>('/api/persona'),
   generate: (force = false) => http.post<PersonaResponse>(`/api/persona/generate${qs({ force })}`),
+  /** 对话式画像：开场第一问 */
+  interviewStart: () => http.post<InterviewView>('/api/persona/interview/start'),
+  /** 对话式画像：提交回答，拿到下一问与更新后的画像草稿 */
+  interviewAnswer: (sessionId: string, answer: string) =>
+    http.post<InterviewView>('/api/persona/interview/answer', { session_id: sessionId, answer }),
+  /** 对话式画像：把访谈草稿落成正式人格文件 */
+  interviewFinish: (sessionId: string) =>
+    http.post<PersonaResponse>('/api/persona/interview/finish', { session_id: sessionId }),
   save: (file: PersonaFile) => http.put<PersonaResponse>('/api/persona', { file }),
   deploy: (body: {
     display_name: string;

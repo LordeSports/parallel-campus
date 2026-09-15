@@ -203,6 +203,7 @@ export type DeployRequest = {
 
 export type DevLoginRequest = {
   "name"?: string;
+  "role"?: "player" | "observer";
 };
 
 export type DialogueTurnView = {
@@ -284,6 +285,28 @@ export type Interest = {
   "topic": string;
   "weight": number;
   "evidence"?: string[];
+};
+
+export type InterviewAnswerRequest = {
+  "session_id": string;
+  "answer": string;
+};
+
+export type InterviewFinishRequest = {
+  "session_id": string;
+};
+
+export type InterviewView = {
+  "session_id": string;
+  "round_no"?: number;
+  "done"?: boolean;
+  "progress"?: number;
+  "messages"?: Record<string, unknown>[];
+  "question"?: string;
+  "reply"?: string;
+  "missing"?: string[];
+  "draft"?: Record<string, unknown> | null;
+  "max_rounds"?: number;
 };
 
 export type LikeResponse = {
@@ -486,6 +509,10 @@ export type ReportView = {
   "top_friends"?: ReportFriendView[];
 };
 
+export type RoleRequest = {
+  "role": "player" | "observer";
+};
+
 export type SceneRequest = {
   "title": string;
   "description"?: string;
@@ -495,7 +522,7 @@ export type SceneRequest = {
 };
 
 export type SimulationRequest = {
-  "mode": "auto" | "paused" | "idle" | "online" | "fast_forward";
+  "mode": "paused" | "idle" | "online" | "fast_forward";
   "tick_seconds_online"?: number;
   "tick_seconds_idle"?: number;
   "ticks"?: number;
@@ -557,6 +584,7 @@ export type User = {
   "display_name": string;
   "avatar_key"?: string;
   "auth_kind"?: string;
+  "role"?: string;
   "zhihu_uid"?: string | null;
   "zhihu_url_token"?: string | null;
   "zhihu_token_enc"?: string | null;
@@ -570,6 +598,7 @@ export type UserView = {
   "display_name": string;
   "avatar_key": string;
   "auth_kind": "zhihu" | "dev";
+  "role"?: "player" | "observer";
   "has_persona"?: boolean;
   "character_id"?: string | null;
   "zhihu_url"?: string | null;
@@ -712,6 +741,9 @@ export interface paths {
   "/api/auth/oauth-log": {
     get: "oauth_debug_log_api_auth_oauth_log_get";
   };
+  "/api/auth/role": {
+    put: "set_role_api_auth_role_put";
+  };
   "/api/auth/zhihu/callback": {
     get: "zhihu_callback_api_auth_zhihu_callback_get";
   };
@@ -742,6 +774,15 @@ export interface paths {
   };
   "/api/persona/generate": {
     post: "generate_api_persona_generate_post";
+  };
+  "/api/persona/interview/answer": {
+    post: "interview_answer_api_persona_interview_answer_post";
+  };
+  "/api/persona/interview/finish": {
+    post: "interview_finish_api_persona_interview_finish_post";
+  };
+  "/api/persona/interview/start": {
+    post: "interview_start_api_persona_interview_start_post";
   };
   "/api/stream": {
     get: "stream_api_stream_get";

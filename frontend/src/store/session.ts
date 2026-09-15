@@ -67,6 +67,8 @@ export const useSession = create<SessionState>((set) => ({
 /** 登录后的落点（spec/07 §1）。 */
 export function landingPath(user: UserView | null): string {
   if (!user) return '/login';
+  // 观察者不生成人格、不投放分身，直接进校园看世界
+  if (user.role === 'observer') return '/campus';
   if (!user.has_persona) return '/persona';
   if (!user.character_id) return '/persona';
   return '/campus';

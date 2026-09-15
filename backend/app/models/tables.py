@@ -47,6 +47,8 @@ class User(SQLModel, table=True):
     display_name: str = Field(max_length=24)
     avatar_key: str = "av_01"
     auth_kind: str = Field(default="dev", max_length=10)  # zhihu | dev
+    # 身份：player 会投放分身到校园；observer 只看世界运转，不需要人格/分身
+    role: str = Field(default="player", max_length=10)  # player | observer
     zhihu_uid: str | None = Field(default=None, index=True)
     zhihu_url_token: str | None = Field(default=None)
     zhihu_token_enc: bytes | None = Field(default=None)
@@ -457,11 +459,35 @@ class CampusMapObject(SQLModel, table=True):
     sort_order: int = Field(default=0)
 
 
+# ─────────────────────────── 3.14 对话式画像访谈 ───────────────────────────
+
+
+class PersonaInterview(SQLModel, table=True):
+    """对话式画像生成的会话状态（一轮 = 一个问题 + 一段回答）。
+
+    evidence_text 缓存知乎证据包（start 时拉一次，之后不再重复请求）；
+    draft 每轮由 LLM 更新，finish 时经 post_process 落成正式 Persona。
+    """
+
+    __tablename__ = "persona_interview"
+
+    id: str = Field(default_factory=lambda: new_id("pi_"), primary_key=True)
+    user_id: str = Field(index=True)
+    status: str = Field(default="active", max_length=10)  # active | done
+    round_no: int = Field(default=0)
+    evidence_text: str = Field(default="")
+    evidence_stats: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    messages: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    draft: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
 __all__ = [
     "User", "Persona", "Character", "CampusLocation", "Relationship", "Memory", "Post", "Comment", "Like",
     "Message", "Dialogue", "WorldEvent", "Event", "Whisper", "Report", "WorldState",
     "ZhihuCache", "QuotaLog", "LlmUsage", "HumanRateLog",
-    "CampusMap", "CampusMapObject",
+    "CampusMap", "CampusMapObject", "PersonaInterview",
     "new_id", "now_utc",
     "String",
 ]

@@ -14,7 +14,7 @@ from ..config import settings
 from ..errors import NotFound, Unauthorized
 from ..models import Character, Persona, User, new_id, now_utc
 from ..oauth_log import oauth_log
-from ..schemas.views import DevLoginRequest, UserView
+from ..schemas.views import DevLoginRequest, RoleRequest, UserView
 from ..security import (
     OAUTH_STATE_COOKIE,
     OAUTH_STATE_MAX_AGE,
@@ -22,6 +22,7 @@ from ..security import (
     SESSION_MAX_AGE,
     diagnose_oauth_state,
     encrypt_token,
+    oauth_state_role,
     sign_oauth_state,
     sign_session,
     verify_oauth_state,
@@ -61,6 +62,7 @@ async def _user_view(session: SessionDep, user: User) -> UserView:
     return UserView(
         id=user.id, display_name=user.display_name, avatar_key=user.avatar_key,
         auth_kind=user.auth_kind,
+        role=user.role if user.role in ("player", "observer") else "player",
         has_persona=persona is not None,
         character_id=char.id if char else None,
         zhihu_url=zhihu_url,
@@ -103,8 +105,12 @@ async def oauth_debug_log() -> dict[str, object]:
 
 
 @router.get("/zhihu/login", include_in_schema=True)
-async def zhihu_login(request: Request) -> RedirectResponse:
-    """302 → openapi.zhihu.com/authorize；Set-Cookie pc_oauth_state（10min）。"""
+async def zhihu_login(request: Request, role: str | None = None) -> RedirectResponse:
+    """302 → openapi.zhihu.com/authorize；Set-Cookie pc_oauth_state（10min）。
+
+    `role`（player / observer）会写进**已签名**的 state，回调时直接取用，
+    免去「登录后再补一次请求」带来的跳转闪烁。
+    """
     # 凭证不全就别带着空 app_id 跳知乎（那边不会发授权码，回来还会是 missing_code）
     if not settings.zhihu_oauth_app_id or not settings.zhihu_oauth_app_key:
         oauth_log.record(
@@ -118,9 +124,11 @@ async def zhihu_login(request: Request) -> RedirectResponse:
             "/login?error=oauth_failed&reason=oauth_not_configured", status_code=302
         )
 
-    state = sign_oauth_state()
+    chosen_role = role if role in ("player", "observer") else None
+    state = sign_oauth_state(chosen_role)
     oauth_log.record(
         "authorize",
+        role=chosen_role or "（未选，默认 player）",
         redirect_uri=settings.zhihu_oauth_redirect_uri,
         cookie_secure=settings.cookie_secure,
         host=request.headers.get("host"),
@@ -218,12 +226,16 @@ async def zhihu_callback(
             id=new_id("u_"), display_name=display_name, avatar_key="av_01",
             auth_kind="zhihu", zhihu_uid=result.zhihu_uid,
             zhihu_url_token=result.url_token,
+            role=(oauth_state_role(cookie_state) or "player"),
         )
         session.add(user)
     else:
         user.display_name = user.display_name or display_name
         if result.url_token:
             user.zhihu_url_token = result.url_token
+        chosen = oauth_state_role(cookie_state)
+        if chosen:
+            user.role = chosen      # 每次登录都以登录页所选为准
 
     user.zhihu_token_enc = encrypt_token(result.access_token)
     user.token_expires_at = result.expires_at
@@ -232,7 +244,10 @@ async def zhihu_callback(
     await session.commit()
 
     view = await _user_view(session, user)
-    target = "/campus" if (view.has_persona and view.character_id) else "/persona"
+    if view.role == "observer":
+        target = "/campus"          # 观察者不投放分身，直接看世界
+    else:
+        target = "/campus" if (view.has_persona and view.character_id) else "/persona"
     resp = RedirectResponse(target, status_code=302)
     _set_session(resp, user.id)
     resp.delete_cookie(OAUTH_STATE_COOKIE, path="/")
@@ -241,7 +256,7 @@ async def zhihu_callback(
 
 @router.post("/dev-login", response_model=UserView)
 async def dev_login(payload: DevLoginRequest, session: SessionDep, response: Response) -> UserView:
-    """仅 DEV_MODE。"""
+    """仅 DEV_MODE。`role` 决定是否要投放分身（player）还是只看世界（observer）。"""
     if not settings.dev_mode:
         raise NotFound("开发登录未启用")
 
@@ -251,14 +266,28 @@ async def dev_login(payload: DevLoginRequest, session: SessionDep, response: Res
     ).first()
     if user is None:
         user = User(id=new_id("u_"), display_name=name, avatar_key="av_09",
-                    auth_kind="dev", last_login_at=now_utc())
+                    auth_kind="dev", role=payload.role, last_login_at=now_utc())
         session.add(user)
+    user.role = payload.role          # 同名再次登录时按本次所选更新
     user.last_login_at = now_utc()
     session.add(user)
     await session.commit()
 
     _set_session(response, user.id)
     return await _user_view(session, user)
+
+
+@router.put("/role", response_model=UserView)
+async def set_role(
+    payload: RoleRequest, session: SessionDep, user: OptionalUser, response: Response
+) -> UserView:
+    """切换身份（观察者 / 玩家）。观察者不需要人格与分身。"""
+    if user is None:
+        raise Unauthorized("请先登录")
+    user.role = payload.role
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
     return await _user_view(session, user)
 
 

@@ -40,6 +40,8 @@ class UserView(View):
     display_name: str
     avatar_key: str
     auth_kind: Literal["zhihu", "dev"]
+    # player：投放分身；observer：只看世界，不需要人格与分身
+    role: Literal["player", "observer"] = "player"
     has_persona: bool = False
     character_id: str | None = None
     zhihu_url: str | None = None
@@ -47,6 +49,11 @@ class UserView(View):
 
 class DevLoginRequest(View):
     name: str = Field(default="测试用户", min_length=1, max_length=24)
+    role: Literal["player", "observer"] = "player"
+
+
+class RoleRequest(View):
+    role: Literal["player", "observer"]
 
 
 # ── 人格 ──
@@ -71,6 +78,28 @@ class PersonaResponse(View):
 
 class PersonaUpdateRequest(View):
     file: PersonaFile
+
+
+class InterviewAnswerRequest(View):
+    session_id: str = Field(min_length=1, max_length=40)
+    answer: str = Field(min_length=1, max_length=400)
+
+
+class InterviewFinishRequest(View):
+    session_id: str = Field(min_length=1, max_length=40)
+
+
+class InterviewView(View):
+    session_id: str
+    round_no: int = 0
+    done: bool = False
+    progress: int = 0
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    question: str = ""
+    reply: str = ""
+    missing: list[str] = Field(default_factory=list)
+    draft: dict[str, Any] | None = None
+    max_rounds: int = 8
 
 
 class DeployRequest(View):

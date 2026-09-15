@@ -1,7 +1,9 @@
 /** 应用骨架：TopBar（固定 56px）+ NavTabs + 内容出口（spec/07 §2）。 */
 
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
+import { authApi } from '../api/endpoints';
 import { useSession } from '../store/session';
 import { SPEED_BADGE, moodEmoji, useWorld, weatherLabel } from '../store/world';
 
@@ -12,8 +14,10 @@ const TABS = [
   { to: '/report', label: '匹配报告' },
 ];
 
-function SpeedBadge() {
-  const state = useWorld((s) => s.state);
+/** 观察者没有分身，隐藏只对自己分身有意义的页签。 */
+const OBSERVER_TABS = TABS.filter((t) => t.to === '/campus' || t.to === '/wall');
+
+function SpeedBadge() {  const state = useWorld((s) => s.state);
   const connected = useWorld((s) => s.connected);
   if (!connected) {
     return (
@@ -33,6 +37,47 @@ function SpeedBadge() {
   );
 }
 
+/** 身份徽标：点击在「观察者 / 玩家」之间切换。 */
+function RoleChip() {
+  const user = useSession((s) => s.user);
+  const setUser = useSession((s) => s.setUser);
+  const [busy, setBusy] = useState(false);
+  if (!user) return null;
+  const isObserver = user.role === 'observer';
+
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const next = isObserver ? 'player' : 'observer';
+      const updated = await authApi.setRole(next);
+      setUser(updated);
+      // 切到玩家但还没人格/分身 → 去完成投放流程
+      if (next === 'player' && (!updated.has_persona || !updated.character_id)) {
+        window.location.href = '/persona';
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void toggle()}
+      disabled={busy}
+      className={`chip ${isObserver ? 'bg-slate-100 text-slate-600' : 'bg-brand-50 text-brand-600'}`}
+      title={
+        isObserver
+          ? '当前是观察者 · 点击切换为玩家（需生成人格并投放分身）'
+          : '当前是玩家 · 点击切换为观察者（不再投放分身，只看世界）'
+      }
+    >
+      {busy ? '切换中…' : isObserver ? '观察者' : '玩家'}
+    </button>
+  );
+}
+
 export default function AppShell() {
   const user = useSession((s) => s.user);
   const logout = useSession((s) => s.logout);
@@ -43,6 +88,8 @@ export default function AppShell() {
 
   const weather = state?.weather;
   const degraded = state?.degraded;
+  const isObserver = user?.role === 'observer';
+  const tabs = isObserver ? OBSERVER_TABS : TABS;
 
   return (
     <div className="flex min-h-full flex-col bg-paper">
@@ -73,6 +120,7 @@ export default function AppShell() {
             </span>
           ))}
           <SpeedBadge />
+          <RoleChip />
           <NavLink to="/admin" className="btn-ghost px-2 text-xs">管理</NavLink>
 
           {me && (
@@ -113,7 +161,7 @@ export default function AppShell() {
 
       {/* NavTabs */}
       <nav className="sticky top-14 z-20 flex shrink-0 gap-1 border-b border-black/5 bg-white/65 px-3 backdrop-blur">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <NavLink
             key={t.to}
             to={t.to}

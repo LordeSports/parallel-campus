@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -17,6 +18,8 @@ from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from .config import settings
+
+log = logging.getLogger("pc.db")
 
 # 全局单写者锁：整个进程只有一把，保证 tick 落库与 API 写操作串行
 write_lock = asyncio.Lock()
@@ -127,7 +130,7 @@ def peek_engine() -> AsyncEngine | None:
 
 
 async def init_db() -> None:
-    """建表。
+    """建表 + 增量补列。
 
     SQLite 的 PRAGMA 已在 `_autocommit_off`（引擎 `connect` 事件）里逐连接设好，
     这里不再重复——`synchronous` 在事务内设置会被 SQLite 拒绝。
@@ -138,6 +141,37 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
+
+
+# 已上线表的新增列（create_all 只建缺失的表，**不会**给旧表补列）。
+# 都是「可空或带默认值」的加法列，重复执行安全。
+_ADDITIVE_COLUMNS: tuple[tuple[str, str, str], ...] = (
+    # (表名, 列名, 列定义)
+    ("users", "role", "VARCHAR(10) DEFAULT 'player'"),
+)
+
+
+def _add_missing_columns(conn) -> None:  # noqa: ANN001
+    """给已存在的表补上新增列；已存在则跳过。
+
+    老库（用户线上那份 `pc.db`）缺这些列时，读取会直接报
+    `no such column`，所以启动时补一次是最省事的做法。
+    """
+    from sqlalchemy import text
+
+    for table, column, ddl in _ADDITIVE_COLUMNS:
+        exists = conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name=:t"),
+            {"t": table},
+        ).first()
+        if exists is None:
+            continue  # 新库由 create_all 建好，列已存在
+        cols = {row[1] for row in conn.execute(text(f'PRAGMA table_info("{table}")'))}
+        if column in cols:
+            continue
+        conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN {column} {ddl}'))
+        log.info("已为表 %s 补列 %s", table, column)
 
 
 async def dispose_db() -> None:

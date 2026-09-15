@@ -14,6 +14,7 @@ from .tables import (  # noqa: F401
     Memory,
     Message,
     Persona,
+    PersonaInterview,
     Post,
     QuotaLog,
     Relationship,

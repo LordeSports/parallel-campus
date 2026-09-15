@@ -36,14 +36,42 @@
      "auth"
     ],
     "summary": "Zhihu Login",
-    "description": "302 → openapi.zhihu.com/authorize；Set-Cookie pc_oauth_state（10min）。",
+    "description": "302 → openapi.zhihu.com/authorize；Set-Cookie pc_oauth_state（10min）。\n\n`role`（player / observer）会写进**已签名**的 state，回调时直接取用，\n免去「登录后再补一次请求」带来的跳转闪烁。",
     "operationId": "zhihu_login_api_auth_zhihu_login_get",
+    "parameters": [
+     {
+      "name": "role",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Role"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "Successful Response",
       "content": {
        "application/json": {
         "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
        }
       }
      }
@@ -136,13 +164,55 @@
      "auth"
     ],
     "summary": "Dev Login",
-    "description": "仅 DEV_MODE。",
+    "description": "仅 DEV_MODE。`role` 决定是否要投放分身（player）还是只看世界（observer）。",
     "operationId": "dev_login_api_auth_dev_login_post",
     "requestBody": {
      "content": {
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/DevLoginRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserView"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/role": {
+   "put": {
+    "tags": [
+     "auth"
+    ],
+    "summary": "Set Role",
+    "description": "切换身份（观察者 / 玩家）。观察者不需要人格与分身。",
+    "operationId": "set_role_api_auth_role_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RoleRequest"
        }
       }
      },
@@ -363,6 +433,112 @@
          "type": "object",
          "additionalProperties": true,
          "title": "Response Deploy Api Persona Deploy Post"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/persona/interview/start": {
+   "post": {
+    "tags": [
+     "persona"
+    ],
+    "summary": "Interview Start",
+    "description": "对话式画像 · 开场：拉知乎证据 → 第一问（已有进行中的会话则续上）。",
+    "operationId": "interview_start_api_persona_interview_start_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InterviewView"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/persona/interview/answer": {
+   "post": {
+    "tags": [
+     "persona"
+    ],
+    "summary": "Interview Answer",
+    "description": "对话式画像 · 回答：LLM 完善画像并给下一问；画像足够完善时 done=true。",
+    "operationId": "interview_answer_api_persona_interview_answer_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InterviewAnswerRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InterviewView"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/persona/interview/finish": {
+   "post": {
+    "tags": [
+     "persona"
+    ],
+    "summary": "Interview Finish",
+    "description": "对话式画像 · 收尾：把访谈草稿清洗后落成正式人格文件。",
+    "operationId": "interview_finish_api_persona_interview_finish_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/InterviewFinishRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PersonaResponse"
         }
        }
       }
@@ -3476,6 +3652,15 @@
       "minLength": 1,
       "title": "Name",
       "default": "测试用户"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "player",
+       "observer"
+      ],
+      "title": "Role",
+      "default": "player"
      }
     },
     "type": "object",
@@ -3844,6 +4029,113 @@
      "weight"
     ],
     "title": "Interest"
+   },
+   "InterviewAnswerRequest": {
+    "properties": {
+     "session_id": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Session Id"
+     },
+     "answer": {
+      "type": "string",
+      "maxLength": 400,
+      "minLength": 1,
+      "title": "Answer"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_id",
+     "answer"
+    ],
+    "title": "InterviewAnswerRequest"
+   },
+   "InterviewFinishRequest": {
+    "properties": {
+     "session_id": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Session Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_id"
+    ],
+    "title": "InterviewFinishRequest"
+   },
+   "InterviewView": {
+    "properties": {
+     "session_id": {
+      "type": "string",
+      "title": "Session Id"
+     },
+     "round_no": {
+      "type": "integer",
+      "title": "Round No",
+      "default": 0
+     },
+     "done": {
+      "type": "boolean",
+      "title": "Done",
+      "default": false
+     },
+     "progress": {
+      "type": "integer",
+      "title": "Progress",
+      "default": 0
+     },
+     "messages": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "title": "Messages"
+     },
+     "question": {
+      "type": "string",
+      "title": "Question",
+      "default": ""
+     },
+     "reply": {
+      "type": "string",
+      "title": "Reply",
+      "default": ""
+     },
+     "missing": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Missing"
+     },
+     "draft": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Draft"
+     },
+     "max_rounds": {
+      "type": "integer",
+      "title": "Max Rounds",
+      "default": 8
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_id"
+    ],
+    "title": "InterviewView"
    },
    "LikeResponse": {
     "properties": {
@@ -4849,6 +5141,23 @@
     ],
     "title": "ReportView"
    },
+   "RoleRequest": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "enum": [
+       "player",
+       "observer"
+      ],
+      "title": "Role"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role"
+    ],
+    "title": "RoleRequest"
+   },
    "SceneRequest": {
     "properties": {
      "title": {
@@ -4896,7 +5205,6 @@
      "mode": {
       "type": "string",
       "enum": [
-       "auto",
        "paused",
        "idle",
        "online",
@@ -5186,6 +5494,12 @@
       "title": "Auth Kind",
       "default": "dev"
      },
+     "role": {
+      "type": "string",
+      "maxLength": 10,
+      "title": "Role",
+      "default": "player"
+     },
      "zhihu_uid": {
       "anyOf": [
        {
@@ -5271,6 +5585,15 @@
        "dev"
       ],
       "title": "Auth Kind"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "player",
+       "observer"
+      ],
+      "title": "Role",
+      "default": "player"
      },
      "has_persona": {
       "type": "boolean",

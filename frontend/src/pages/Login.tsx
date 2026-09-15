@@ -9,6 +9,12 @@ import { oauthErrorText, sse } from '../api/sse';
 import { landingPath, useSession } from '../store/session';
 
 type Tab = 'zhihu' | 'dev';
+type UserRole = 'player' | 'observer';
+
+const ROLE_OPTIONS: { value: UserRole; label: string; hint: string }[] = [
+  { value: 'player', label: '玩家', hint: '生成人格并投放分身' },
+  { value: 'observer', label: '观察者', hint: '只看，不投放' },
+];
 
 /** DEV 环境下的 OAuth 调试面板：一眼看出回调配置与失败环节。 */
 function OauthDebugPanel() {
@@ -137,6 +143,7 @@ export default function Login() {
   const oauthFailed = params.get('error') === 'oauth_failed';
 
   const [devName, setDevName] = useState('');
+  const [role, setRole] = useState<UserRole>('player');
 
   useEffect(() => {
     void healthApi
@@ -169,19 +176,54 @@ export default function Login() {
             </div>
           )}
 
+          {/* 身份：决定要不要把分身投进校园 */}
+          <div className="mb-5">
+            <p className="mb-2 text-sm font-medium text-ink">以什么身份进入</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ROLE_OPTIONS.map((opt) => {
+                const active = role === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setRole(opt.value)}
+                    className={[
+                      'rounded-xl border px-3 py-2.5 text-left transition-colors',
+                      active
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-black/10 text-ink hover:bg-black/[.03]',
+                    ].join(' ')}
+                  >
+                    <span className="block text-sm font-medium">{opt.label}</span>
+                    <span className="mt-0.5 block text-[11px] leading-snug text-muted">
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted">
+              {role === 'observer'
+                ? '观察者：不生成人格、不投放分身，直接观看校园里正在发生的事。'
+                : '玩家：读取你的知乎公开内容生成人格，再把自己的分身投进校园替你先活一天。'}
+            </p>
+          </div>
+
           {tab === 'zhihu' && (
             <div className="space-y-4">
               <button
                 type="button"
                 className="btn-primary w-full py-2.5"
                 onClick={() => {
-                  window.location.href = '/api/auth/zhihu/login';
+                  window.location.href = `/api/auth/zhihu/login?role=${role}`;
                 }}
               >
                 使用知乎账号登录
               </button>
               <p className="text-center text-xs leading-relaxed text-muted">
-                仅读取你的公开创作、关注与收藏，用于生成人格文件；可随时删除
+                {role === 'observer'
+                  ? '仅完成登录，不读取你的知乎内容'
+                  : '仅读取你的公开创作、关注与收藏，用于生成人格文件；可随时删除'}
               </p>
             </div>
           )}
@@ -194,7 +236,7 @@ export default function Login() {
                 setBusy(true);
                 setError(null);
                 authApi
-                  .devLogin(devName.trim() || '测试同学')
+                  .devLogin(devName.trim() || '测试同学', role)
                   .then((u) => {
                     setUser(u);
                     window.location.href = landingPath(u);
